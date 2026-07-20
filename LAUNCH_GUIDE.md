@@ -4,15 +4,16 @@ This document provides a complete assessment of the FUTA application's readiness
 
 ---
 
-## 📊 Overall Readiness Status: **85% Ready**
+## 📊 Overall Readiness Status: **90% Ready**
 
 | Component | Status | Notes |
 | :--- | :--- | :--- |
 | **Backend API (Cloud Run)** | ✅ **Production Ready** | Deployed on Google Cloud Run (`https://futa-backend-43008970087.us-central1.run.app`). Public x509 cert validation and role endpoints active. |
 | **Database & RLS (Supabase)** | ✅ **Production Ready** | Split profile tables (`profiles`, `school_profiles`, `merchant_profiles`) and security policies active. |
 | **Application Logic & UI** | ✅ **Production Ready** | Cash adjustments, auto-cascading installment payments, role routing, and mobile/web layouts verified. |
-| **App Branding & Metadata** | ✅ **Completed** | Launcher icons generated (`assets/icon/icon.png`), display name set to **Futa**, web titles configured. |
-| **Build Signing & Credentials** | ⚠️ **Needs Setup** | Android Keystore, iOS App Store provisioning profiles, and release credentials need configuration. |
+| **App Branding & Bundle ID** | ✅ **Completed** | Launcher icons generated, app display name set to **Futa**, bundle ID updated to `com.futa.app`. |
+| **iOS SMS OTP Authentication** | ✅ **Verified & Working** | Custom URL scheme (`app-1-43008970087-ios-1ff25b3763a05c929333c2`) registered and tested on physical iPhone. |
+| **Build Signing & Deployment** | ⚠️ **Needs Upload** | Ready for Google Play Console `.aab`, iOS TestFlight `.ipa`, and Firebase Hosting web upload. |
 
 ---
 
