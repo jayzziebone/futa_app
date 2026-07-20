@@ -117,7 +117,7 @@ android {
 ### Step 2: Build Web Release
 ```bash
 cd Futa
-flutter build web --release --web-renderer canvaskit
+flutter build web --release
 ```
 Output directory: `Futa/build/web/`
 
