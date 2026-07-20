@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "43008970087",
+    "project_id": "futa-1c8d8",
+    "storage_bucket": "futa-1c8d8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:43008970087:android:cea238b61e8c46aa9333c2",
+        "android_client_info": {
+          "package_name": "com.futa.frontend"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBTXRv3aBvzQq5Xq_qczTmoghzOrOQjCEQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
