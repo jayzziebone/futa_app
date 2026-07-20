@@ -7,9 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:43008970087:android:cea238b61e8c46aa9333c2",
+        "mobilesdk_app_id": "1:43008970087:android:31c0f42106d8bbde9333c2",
         "android_client_info": {
-          "package_name": "com.futa.frontend"
+          "package_name": "com.futa.app"
         }
       },
       "oauth_client": [],

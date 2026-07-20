@@ -9,7 +9,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.futa.frontend</string>
+	<string>com.futa.app</string>
 	<key>PROJECT_ID</key>
 	<string>futa-1c8d8</string>
 	<key>STORAGE_BUCKET</key>
@@ -25,6 +25,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:43008970087:ios:84964633bea9d40f9333c2</string>
+	<string>1:43008970087:ios:1ff25b3763a05c929333c2</string>
 </dict>
 </plist>
