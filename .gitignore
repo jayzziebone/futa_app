@@ -30,16 +30,16 @@ env/
 .coverage
 htmlcov/
 
-# Flutter / Frontend
-frontend/.dart_tool/
-frontend/.flutter-plugins
-frontend/.flutter-plugins-dependencies
-frontend/.pub-cache/
-frontend/.pub/
-frontend/build/
-frontend/*.iml
-frontend/.idea/
-frontend/.metadata
+# Flutter / Futa
+Futa/.dart_tool/
+Futa/.flutter-plugins
+Futa/.flutter-plugins-dependencies
+Futa/.pub-cache/
+Futa/.pub/
+Futa/build/
+Futa/*.iml
+Futa/.idea/
+Futa/.metadata
 
 # General IDEs
 .idea/
