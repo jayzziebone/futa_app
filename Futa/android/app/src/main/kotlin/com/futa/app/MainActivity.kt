@@ -1,4 +1,4 @@
-package com.futa.frontend
+package com.futa.app
 
 import io.flutter.embedding.android.FlutterActivity
 
