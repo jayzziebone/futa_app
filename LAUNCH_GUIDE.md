@@ -4,7 +4,7 @@ This document provides a complete assessment of the FUTA application's readiness
 
 ---
 
-## 📊 Overall Readiness Status: **90% Ready**
+## 📊 Overall Readiness Status: **95% Ready**
 
 | Component | Status | Notes |
 | :--- | :--- | :--- |
@@ -12,8 +12,9 @@ This document provides a complete assessment of the FUTA application's readiness
 | **Database & RLS (Supabase)** | ✅ **Production Ready** | Split profile tables (`profiles`, `school_profiles`, `merchant_profiles`) and security policies active. |
 | **Application Logic & UI** | ✅ **Production Ready** | Cash adjustments, auto-cascading installment payments, role routing, and mobile/web layouts verified. |
 | **App Branding & Bundle ID** | ✅ **Completed** | Launcher icons generated, app display name set to **Futa**, bundle ID updated to `com.futa.app`. |
-| **iOS SMS OTP Authentication** | ✅ **Verified & Working** | Custom URL scheme (`app-1-43008970087-ios-1ff25b3763a05c929333c2`) registered and tested on physical iPhone. |
-| **Build Signing & Deployment** | ⚠️ **Needs Upload** | Ready for Google Play Console `.aab`, iOS TestFlight `.ipa`, and Firebase Hosting web upload. |
+| **Google Play Store (Android)** | ✅ **Deployed & Live** | App Bundle `.aab` deployed to Google Play Console with Play App Signing & SHA-256 registered. |
+| **Web Deployment (Firebase)** | ✅ **Deployed & Live** | Production web app compiled and deployed to Firebase Hosting. |
+| **iOS TestFlight Deployment** | ⚠️ **Next Step** | App ID (`com.futa.app`) & custom URL schemes configured. Archive `.ipa` ready for upload to TestFlight. |
 
 ---
 
