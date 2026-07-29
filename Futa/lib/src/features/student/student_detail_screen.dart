@@ -81,7 +81,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
       final studentRes = await supabase
           .from('students')
           .select(
-            '*, parent:profiles!students_parent_id_fkey(first_name, last_name, phone_number)',
+            '*, parent:profiles!students_parent_id_fkey(id, first_name, last_name, phone_number, address)',
           )
           .eq('id', widget.studentId)
           .single();
@@ -150,10 +150,12 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
       }
 
       final parentData = studentRes['parent'] as Map<String, dynamic>?;
-      final parentName = parentData != null
-          ? '${parentData['first_name'] ?? ""} ${parentData['last_name'] ?? ""}'
-                .trim()
-          : '';
+      final parentId = parentData?['id'] ?? studentRes['parent_id'] ?? '';
+      final parentFirstName = parentData?['first_name'] ?? '';
+      final parentLastName = parentData?['last_name'] ?? '';
+      final parentPhone = parentData?['phone_number'] ?? '';
+      final parentAddress = parentData?['address'] ?? '';
+      final parentName = '$parentFirstName $parentLastName'.trim();
 
       setState(() {
         _studentData = {
@@ -170,6 +172,12 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
           'total_tuition': totalTuition,
           'amount_paid': totalPaid,
           'status_text': statusText,
+          'parent_id': parentId,
+          'parent_first_name': parentFirstName,
+          'parent_last_name': parentLastName,
+          'parent_name': parentName,
+          'parent_phone': parentPhone,
+          'parent_address': parentAddress,
         };
         _transactions = tempTransactions;
         _schoolName = tempSchoolName;
@@ -189,6 +197,12 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
           'total_tuition': 1700000.0,
           'amount_paid': 1250000.0,
           'status_text': 'Paiement Partiel',
+          'parent_id': '',
+          'parent_first_name': 'Richard',
+          'parent_last_name': 'Dupont',
+          'parent_name': 'Richard Dupont',
+          'parent_phone': '+243 812 345 678',
+          'parent_address': 'Gombe, Kinshasa',
         };
         _transactions = [
           {
@@ -203,6 +217,254 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
       });
     }
   }
+
+  Future<void> _updateParentDetails({
+    required String parentId,
+    required String firstName,
+    required String lastName,
+    required String phoneNumber,
+    String? address,
+  }) async {
+    try {
+      final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+      await _dio.post(
+        '/api/v1/school/update-parent',
+        data: {
+          'parent_id': parentId,
+          'first_name': firstName,
+          'last_name': lastName,
+          'phone_number': phoneNumber,
+          'address': address,
+        },
+        options: dio.Options(
+          headers: {'Authorization': 'Bearer $token'},
+        ),
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profil du parent mis à jour avec succès.'),
+            backgroundColor: FutaTheme.success,
+          ),
+        );
+      }
+      _loadStudentDetails();
+    } catch (e) {
+      debugPrint('Error updating parent: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Échec de la mise à jour: ${e.toString()}'),
+            backgroundColor: FutaTheme.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _updateInstallmentDates({
+    String? studentId,
+    required String tranche1Date,
+    required String tranche2Date,
+    required String tranche3Date,
+  }) async {
+    try {
+      final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+      await _dio.post(
+        '/api/v1/school/update-installment-dates',
+        data: {
+          'school_id': FirebaseAuth.instance.currentUser?.uid,
+          'student_id': studentId,
+          'tranche1_date': tranche1Date,
+          'tranche2_date': tranche2Date,
+          'tranche3_date': tranche3Date,
+        },
+
+        options: dio.Options(
+          headers: {'Authorization': 'Bearer $token'},
+        ),
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Dates d\'échéances mises à jour avec succès.'),
+            backgroundColor: FutaTheme.success,
+          ),
+        );
+      }
+      _loadStudentDetails();
+    } catch (e) {
+      debugPrint('Error updating installment dates: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Échec de la mise à jour: ${e.toString()}'),
+            backgroundColor: FutaTheme.error,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showEditParentDialog() {
+    final firstNameController = TextEditingController(text: _studentData['parent_first_name'] ?? '');
+    final lastNameController = TextEditingController(text: _studentData['parent_last_name'] ?? '');
+    final phoneController = TextEditingController(text: _studentData['parent_phone'] ?? '');
+    final addressController = TextEditingController(text: _studentData['parent_address'] ?? '');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text(
+          'Modifier le profil du parent',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: FutaTheme.blueDark),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: firstNameController,
+                decoration: const InputDecoration(labelText: 'Prénom du parent'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: lastNameController,
+                decoration: const InputDecoration(labelText: 'Nom du parent'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: phoneController,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                  labelText: 'Téléphone',
+                  hintText: '+243... ou 08...',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: addressController,
+                decoration: const InputDecoration(labelText: 'Adresse'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: FutaTheme.emeraldGreen),
+            onPressed: () {
+              if (firstNameController.text.trim().isEmpty || lastNameController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Veuillez remplir le prénom et le nom.')),
+                );
+                return;
+              }
+              _updateParentDetails(
+                parentId: _studentData['parent_id'] ?? '',
+                firstName: firstNameController.text.trim(),
+                lastName: lastNameController.text.trim(),
+                phoneNumber: phoneController.text.trim(),
+                address: addressController.text.trim(),
+              );
+              Navigator.pop(ctx);
+            },
+            child: const Text('Enregistrer', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditInstallmentDatesDialog() {
+    final now = DateTime.now();
+    DateTime t1 = now.add(const Duration(days: 30));
+    DateTime t2 = now.add(const Duration(days: 60));
+    DateTime t3 = now.add(const Duration(days: 90));
+
+    final DateFormat formatter = DateFormat('yyyy-MM-dd');
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            Future<void> pickDate(int trancheNum) async {
+              final initial = trancheNum == 1 ? t1 : (trancheNum == 2 ? t2 : t3);
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: initial,
+                firstDate: DateTime(2020),
+                lastDate: DateTime(2030),
+              );
+              if (picked != null) {
+                setDialogState(() {
+                  if (trancheNum == 1) t1 = picked;
+                  if (trancheNum == 2) t2 = picked;
+                  if (trancheNum == 3) t3 = picked;
+                });
+              }
+            }
+
+            return AlertDialog(
+              title: const Text(
+                'Définir les Échéances (Élève)',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: FutaTheme.blueDark),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(
+                    title: const Text('Tranche 1', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                    subtitle: Text(formatter.format(t1)),
+                    trailing: const Icon(Icons.calendar_today, size: 18, color: FutaTheme.blueDark),
+                    onTap: () => pickDate(1),
+                  ),
+                  const Divider(),
+                  ListTile(
+                    title: const Text('Tranche 2', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                    subtitle: Text(formatter.format(t2)),
+                    trailing: const Icon(Icons.calendar_today, size: 18, color: FutaTheme.blueDark),
+                    onTap: () => pickDate(2),
+                  ),
+                  const Divider(),
+                  ListTile(
+                    title: const Text('Tranche 3', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                    subtitle: Text(formatter.format(t3)),
+                    trailing: const Icon(Icons.calendar_today, size: 18, color: FutaTheme.blueDark),
+                    onTap: () => pickDate(3),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Annuler'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: FutaTheme.emeraldGreen),
+                  onPressed: () {
+                    _updateInstallmentDates(
+                      studentId: widget.studentId,
+                      tranche1Date: formatter.format(t1),
+                      tranche2Date: formatter.format(t2),
+                      tranche3Date: formatter.format(t3),
+                    );
+                    Navigator.pop(ctx);
+                  },
+                  child: const Text('Enregistrer', style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
 
   void _showDepositDialog() {
     final amountController = TextEditingController();
@@ -455,116 +717,146 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
 
     return Scaffold(
       backgroundColor: FutaTheme.backgroundLight,
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.pop(),
-        ),
-        title: Text(_schoolName),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_none),
-            onPressed: () {},
-          ),
-          // const Padding(
-          //   padding: EdgeInsets.only(right: 16.0),
-          //   child: CircleAvatar(
-          //     backgroundColor: FutaTheme.blueDark,
-          //     radius: 16,
-          //     child: Text(
-          //       'JD',
-          //       style: TextStyle(
-          //         color: Colors.white,
-          //         fontSize: 12,
-          //         fontWeight: FontWeight.bold,
-          //       ),
-          //     ),
-          //   ),
-          // ),
-        ],
-      ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 480),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // 1. STUDENT HEADER CARD (Avatar, Name, Specialty Tags)
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24.0),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // 1. HERO GRADIENT HEADER BANNER CARD
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(24),
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color(0xFF1E1B4B), // Deep Slate Navy
+                          FutaTheme.blueDark, // Brand Deep Indigo
+                          Color(0xFF313B9B), // Vibrant Indigo
+                        ],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: FutaTheme.blueDark.withOpacity(0.25),
+                          blurRadius: 20,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.all(24),
                     child: Column(
                       children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            IconButton(
+                              style: IconButton.styleFrom(
+                                backgroundColor: Colors.white.withOpacity(0.12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 16),
+                              onPressed: () => context.pop(),
+                            ),
+                            Text(
+                              _schoolName.toUpperCase(),
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.5,
+                              ),
+                            ),
+                            IconButton(
+                              style: IconButton.styleFrom(
+                                backgroundColor: Colors.white.withOpacity(0.12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              icon: const Icon(Icons.notifications_none, color: Colors.white, size: 18),
+                              onPressed: () {},
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
                         CircleAvatar(
-                          radius: 40,
-                          backgroundColor: Colors.blue.shade50,
-                          child: const Icon(
-                            Icons.face,
-                            size: 45,
-                            color: FutaTheme.blueIndigo,
+                          radius: 42,
+                          backgroundColor: Colors.white.withOpacity(0.2),
+                          child: CircleAvatar(
+                            radius: 38,
+                            backgroundColor: FutaTheme.emeraldGreen,
+                            child: Text(
+                              _studentData['first_name']?[0] ?? '',
+                              style: const TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
                           ),
                         ),
                         const SizedBox(height: 16),
                         Text(
                           '${_studentData['first_name']} ${_studentData['last_name']}',
                           style: const TextStyle(
-                            fontSize: 20,
+                            fontSize: 22,
                             fontWeight: FontWeight.bold,
-                            color: FutaTheme.blueDark,
+                            color: Colors.white,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 6),
                         Text(
-                          'ID: ${_studentData['matricule']}',
+                          _studentData['matricule'],
                           style: const TextStyle(
-                            color: FutaTheme.textLight,
+                            color: Colors.white70,
                             fontSize: 13,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                         const SizedBox(height: 16),
-
-                        // Dynamic Specialty Tags
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          alignment: WrapAlignment.center,
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFE2E8F0),
-                                borderRadius: BorderRadius.circular(16),
+                                color: Colors.white.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: Colors.white24),
                               ),
-                              child: Text(
-                                _studentData['classroom'],
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: FutaTheme.textDark,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.school, size: 14, color: Colors.white),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    _studentData['classroom'],
+                                    style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(width: 8),
                             Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFE2E8F0),
-                                borderRadius: BorderRadius.circular(16),
+                                color: Colors.white.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: Colors.white24),
                               ),
-                              child: Text(
-                                _studentData['specialty'],
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: FutaTheme.textDark,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.person, size: 14, color: Colors.white70),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    _studentData['specialty'],
+                                    style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w500),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
@@ -572,357 +864,354 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
                       ],
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
+                  const SizedBox(height: 20),
 
-                // 2. ACADEMIC PERFORMANCE (GPA + Attendance rate)
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const Text(
-                          'RÉSUMÉ ACADÉMIQUE',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.2,
-                            color: FutaTheme.textLight,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        // General Score Box
-                        Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: FutaTheme.backgroundLight,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Row(
-                                children: [
-                                  Icon(
-                                    Icons.school,
-                                    size: 20,
-                                    color: FutaTheme.emeraldGreen,
-                                  ),
-                                  SizedBox(width: 12),
-                                  Text(
-                                    'Moyenne Générale',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w500,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Text(
-                                _studentData['gpa'],
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                  color: FutaTheme.blueDark,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-
-                        // Attendance Box
-                        Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: FutaTheme.backgroundLight,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Row(
-                                children: [
-                                  Icon(
-                                    Icons.calendar_today,
-                                    size: 20,
-                                    color: FutaTheme.emeraldGreen,
-                                  ),
-                                  SizedBox(width: 12),
-                                  Text(
-                                    'Assiduité',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w500,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Text(
-                                _studentData['attendance'],
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                  color: FutaTheme.blueDark,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        OutlinedButton(
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            side: const BorderSide(
-                              color: FutaTheme.emeraldGreen,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          onPressed: () {},
-                          child: const Text(
-                            'Voir le bulletin complet',
-                            style: TextStyle(
-                              color: FutaTheme.emeraldGreen,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
+                  // 2. PARENT PROFILE & ACTIONS CARD
+                  Card(
+                    elevation: 0.5,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      side: BorderSide(color: Colors.grey.shade200),
                     ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // 3. PAYMENT PROGRESS & BALANCE (With amount displays and progress bar)
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'Statut des Paiements',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: FutaTheme.blueDark,
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: statusBgColor,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                _studentData['status_text'],
+                    child: Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'INFORMATIONS DU PARENT',
                                 style: TextStyle(
-                                  color: statusTextColor,
+                                  fontSize: 11,
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 10,
+                                  letterSpacing: 1.2,
+                                  color: FutaTheme.blueDark,
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                        const Text(
-                          'Année académique 2023 - 2024',
-                          style: TextStyle(
-                            color: FutaTheme.textLight,
-                            fontSize: 11,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Paid / Debt block
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'PAYÉ',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: FutaTheme.textLight,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '${currencyFormat.format(paid)}',
-                                    style: TextStyle(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold,
-                                      color: paidTextColor,
-                                    ),
-                                  ),
-                                  Text(
-                                    'FC',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: paidTextColor,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                const Text(
-                                  'RESTE À PAYER',
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: FutaTheme.emeraldLight,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Text(
+                                  'Tuteur Légal',
                                   style: TextStyle(
                                     fontSize: 10,
-                                    color: FutaTheme.textLight,
                                     fontWeight: FontWeight.bold,
+                                    color: FutaTheme.emeraldGreen,
                                   ),
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '${currencyFormat.format(remaining)}',
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: FutaTheme.error,
-                                  ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: Colors.grey.shade200),
+                            ),
+                            child: Column(
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFEFF6FF),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Icon(Icons.person, size: 16, color: FutaTheme.blueIndigo),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    const Text('Nom: ', style: TextStyle(color: FutaTheme.textLight, fontSize: 13)),
+                                    Expanded(
+                                      child: Text(
+                                        (_studentData['parent_name'] ?? '').isNotEmpty
+                                            ? _studentData['parent_name']
+                                            : 'Non spécifié',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: FutaTheme.textDark),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const Text(
-                                  'FC',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: FutaTheme.error,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                                const SizedBox(height: 10),
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFEFF6FF),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Icon(Icons.phone, size: 16, color: FutaTheme.blueIndigo),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    const Text('Téléphone: ', style: TextStyle(color: FutaTheme.textLight, fontSize: 13)),
+                                    Expanded(
+                                      child: Text(
+                                        (_studentData['parent_phone'] ?? '').isNotEmpty
+                                            ? _studentData['parent_phone']
+                                            : 'Non spécifié',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: FutaTheme.textDark),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFEFF6FF),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Icon(Icons.location_on, size: 16, color: FutaTheme.blueIndigo),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    const Text('Adresse: ', style: TextStyle(color: FutaTheme.textLight, fontSize: 13)),
+                                    Expanded(
+                                      child: Text(
+                                        (_studentData['parent_address'] ?? '').isNotEmpty
+                                            ? _studentData['parent_address']
+                                            : 'Non spécifiée',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: FutaTheme.textDark),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-
-                        // Bar progress
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(6),
-                          child: LinearProgressIndicator(
-                            value: paidPercentage,
-                            minHeight: 8,
-                            backgroundColor: Colors.grey.shade100,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              progressColor,
-                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              '${(paidPercentage * 100).round()}% du montant total',
-                              style: const TextStyle(
-                                color: FutaTheme.textLight,
-                                fontSize: 10,
-                              ),
-                            ),
-                            Text(
-                              'Total: ${currencyFormat.format(total)} FC',
-                              style: const TextStyle(
-                                color: FutaTheme.textLight,
-                                fontSize: 10,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Actions
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.black,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          icon: const Icon(Icons.payment, size: 18),
-                          label: const Text('Enregistrer un versement'),
-                          onPressed: _showDepositDialog,
-                        ),
-                        const SizedBox(height: 8),
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            side: BorderSide(color: Colors.grey.shade300),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          icon: const Icon(
-                            Icons.file_download,
-                            size: 18,
-                            color: FutaTheme.textDark,
-                          ),
-                          label: const Text(
-                            'Télécharger l\'échéancier',
-                            style: TextStyle(
-                              color: FutaTheme.textDark,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          onPressed: () {},
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // 4. RECENT TRANSACTIONS LIST
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'Transactions Récentes',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: FutaTheme.blueDark,
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: () {},
-                              child: const Text(
-                                'Voir tout',
-                                style: TextStyle(
-                                  color: FutaTheme.emeraldGreen,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: FutaTheme.emeraldGreen,
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                  icon: const Icon(Icons.edit, size: 16, color: Colors.white),
+                                  label: const Text('Modifier Parent', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+                                  onPressed: _showEditParentDialog,
                                 ),
                               ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    side: const BorderSide(color: FutaTheme.blueDark, width: 1.5),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                  icon: const Icon(Icons.edit_calendar, size: 16, color: FutaTheme.blueDark),
+                                  label: const Text('Échéances Élève', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: FutaTheme.blueDark)),
+                                  onPressed: _showEditInstallmentDatesDialog,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // 3. FINANCIAL SUMMARY CARD
+                  Card(
+                    elevation: 0.5,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      side: BorderSide(color: Colors.grey.shade200),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'STATUT DES PAIEMENTS',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.2,
+                                  color: FutaTheme.blueDark,
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: statusBgColor,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  _studentData['status_text'],
+                                  style: TextStyle(
+                                    color: statusTextColor,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF0FDF4),
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(color: const Color(0xFFDCFCE7)),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'TOTAL PAYÉ',
+                                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF16A34A)),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        '${currencyFormat.format(paid)} FC',
+                                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF16A34A)),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFEF2F2),
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(color: const Color(0xFFFEE2E2)),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'RESTE À PAYER',
+                                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: FutaTheme.error),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        '${currencyFormat.format(remaining)} FC',
+                                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: FutaTheme.error),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: LinearProgressIndicator(
+                              value: paidPercentage,
+                              minHeight: 10,
+                              backgroundColor: Colors.grey.shade100,
+                              valueColor: AlwaysStoppedAnimation<Color>(progressColor),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '${(paidPercentage * 100).round()}% du montant total réglé',
+                                style: const TextStyle(color: FutaTheme.textLight, fontSize: 11, fontWeight: FontWeight.w500),
+                              ),
+                              Text(
+                                'Total: ${currencyFormat.format(total)} FC',
+                                style: const TextStyle(color: FutaTheme.textLight, fontSize: 11, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: FutaTheme.blueDark,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            icon: const Icon(Icons.payments, size: 18, color: Colors.white),
+                            label: const Text('Enregistrer un versement', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                            onPressed: _showDepositDialog,
+                          ),
+                          const SizedBox(height: 10),
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              side: BorderSide(color: Colors.grey.shade300),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            icon: const Icon(Icons.file_download_outlined, size: 18, color: FutaTheme.textDark),
+                            label: const Text(
+                              'Télécharger l\'échéancier',
+                              style: TextStyle(color: FutaTheme.textDark, fontWeight: FontWeight.w600),
+                            ),
+                            onPressed: () {},
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // 4. TRANSACTIONS / INSTALLMENTS CARD
+                  Card(
+                    elevation: 0.5,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      side: BorderSide(color: Colors.grey.shade200),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'ÉCHÉANCIER DE SCOLARITÉ',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.2,
+                                  color: FutaTheme.blueDark,
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () {},
+                                child: const Text(
+                                  'Voir tout',
+                                  style: TextStyle(
+                                    color: FutaTheme.emeraldGreen,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
 
                         ListView.separated(
                           shrinkWrap: true,
@@ -1153,6 +1442,11 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
 }
+}
+
+
+
+

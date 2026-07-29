@@ -29,7 +29,8 @@
 			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>app-1-43008970087-ios-84964633bea9d40f9333c2</string>
+				<string>app-1-43008970087-ios-1ff25b3763a05c929333c2</string>
+
 			</array>
 		</dict>
 	</array>
@@ -82,16 +83,13 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleTypeRole</key>
-			<string>Editor</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>app-1-43008970087-ios-1ff25b3763a05c929333c2</string>
-			</array>
-		</dict>
-	</array>
+	<key>NSPhotoLibraryUsageDescription</key>
+
+	<string>Cette application nécessite l'accès à la galerie photo pour vous permettre de choisir et télécharger des photos de profil ou des documents.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Cette application nécessite l'accès à l'appareil photo pour vous permettre de prendre une photo de profil ou de scanner des documents.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Cette application nécessite l'accès à votre position pour afficher les établissements et partenaires à proximité.</string>
 </dict>
 </plist>
+

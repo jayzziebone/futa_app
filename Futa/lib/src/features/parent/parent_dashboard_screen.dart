@@ -31,6 +31,9 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   int _futaScore = 600;
   int? _previousFutaScore;
   String _selectedContractFilter = 'actifs'; // 'actifs', 'pending', 'completes'
+  final PageController _childrenPageController = PageController();
+
+  int _activeChildIndex = 0;
 
   Map<String, int?> _getStoredScores(String rawAddress) {
     if (!rawAddress.contains('|')) {
@@ -213,7 +216,9 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
 
             // Fetch Merchant Installments
             final merchantContractIds = merchantContracts
-                .where((c) => c['status'] == 'active' || c['status'] == 'completed')
+                .where(
+                  (c) => c['status'] == 'active' || c['status'] == 'completed',
+                )
                 .map((c) => c['id'] as int)
                 .toList();
             if (merchantContractIds.isNotEmpty) {
@@ -236,9 +241,10 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       for (var c in schoolContractsRes) {
         final contractMap = Map<String, dynamic>.from(c);
         contractMap['currency'] = 'FC';
-        
+
         // Map school_profiles metadata to profiles key so UI displays it correctly
-        final schoolProf = contractMap['school_profiles'] as Map<String, dynamic>?;
+        final schoolProf =
+            contractMap['school_profiles'] as Map<String, dynamic>?;
         if (schoolProf != null) {
           contractMap['profiles'] = {
             'first_name': schoolProf['school_name'] ?? '',
@@ -252,7 +258,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
             'phone_number': '',
           };
         }
-        
+
         unifiedContracts.add(contractMap);
       }
       for (var c in merchantContracts) {
@@ -318,10 +324,14 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
               (c) => c['id']?.toString() == inst['contract_id']?.toString(),
               orElse: () => {},
             );
-            final description = schoolContract['description'] ?? 'Frais de scolarité';
+            final description =
+                schoolContract['description'] ?? 'Frais de scolarité';
             unifiedInstallments.add({
               'id': inst['id'].toString(),
               'contract_id': inst['contract_id'].toString(),
+              'student_id':
+                  inst['student_id']?.toString() ??
+                  schoolContract['student_id']?.toString(),
               'amount_due':
                   ((inst['amount'] ?? inst['amount_due'] ?? 0.0) as num)
                       .toDouble(),
@@ -392,11 +402,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       final token = await user.getIdToken();
       final response = await _dio.get(
         '/api/v1/payments/credit-score/$userId',
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $token',
-          },
-        ),
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
       if (response.data != null && response.data['futa_score'] != null) {
         final int newScore = (response.data['futa_score'] as num).toInt();
@@ -451,11 +457,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
               _profile?['phone_number']?.replaceAll(' ', '') ?? '+243812345678',
           'amount': payAmount,
         },
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $token',
-          },
-        ),
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
       if (response.data['status'] == 'success') {
@@ -884,6 +886,440 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     }
   }
 
+  Widget _buildChildrenCarousel() {
+    final currencyFormat = NumberFormat.decimalPattern('fr');
+
+    if (_students.isEmpty) {
+      return Card(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: Colors.grey.shade200),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: FutaTheme.blueDark.withOpacity(0.08),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.child_care,
+                  size: 36,
+                  color: FutaTheme.blueDark,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Aucun enfant répertorié',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: FutaTheme.blueDark,
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Les enfants associés à votre profil apparaîtront ici automatiquement dès leur inscription dans leur établissement.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: FutaTheme.textLight),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.school, size: 18, color: FutaTheme.blueDark),
+                const SizedBox(width: 8),
+                Text(
+                  'MES ENFANTS (${_students.length})',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2,
+                    color: FutaTheme.blueDark,
+                  ),
+                ),
+              ],
+            ),
+            if (_students.length > 1)
+              Text(
+                '${_activeChildIndex + 1} sur ${_students.length}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: FutaTheme.textLight,
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 220,
+          child: PageView.builder(
+            controller: _childrenPageController,
+            itemCount: _students.length,
+            onPageChanged: (index) {
+              setState(() => _activeChildIndex = index);
+            },
+            itemBuilder: (context, index) {
+              final student = _students[index];
+              final studentId = student['id']?.toString() ?? '';
+              final fullName =
+                  '${student['first_name'] ?? ''} ${student['last_name'] ?? ''}'
+                      .trim();
+              final classroom = student['classroom'] ?? 'Classe non renseignée';
+              final matricule =
+                  '#FUTA-2026-${studentId.length >= 4 ? studentId.substring(0, 4).toUpperCase() : "0000"}';
+
+              // Calculate student specific financial totals
+              final studentInsts = _installments.where((i) {
+                final sId = i['student_id']?.toString();
+                final sObjId = i['students']?['id']?.toString();
+                final cId = i['contract_id']?.toString();
+                final matchingContract = _contracts.firstWhere(
+                  (c) =>
+                      c['id']?.toString() == cId &&
+                      c['student_id']?.toString() == studentId,
+                  orElse: () => {},
+                );
+                return (sId != null && sId == studentId) ||
+                    (sObjId != null && sObjId == studentId) ||
+                    matchingContract.isNotEmpty;
+              }).toList();
+
+              double childTotalDue = 0.0;
+              double childPaid = 0.0;
+              for (var inst in studentInsts) {
+                childTotalDue +=
+                    ((inst['amount_due'] ?? inst['amount'] ?? 0.0) as num)
+                        .toDouble();
+                childPaid +=
+                    ((inst['amount_paid'] ?? inst['paid_amount'] ?? 0.0) as num)
+                        .toDouble();
+              }
+
+              // Fallback to contract level totals if studentInsts was empty or zero
+              if (childTotalDue == 0.0) {
+                final studentContracts = _contracts
+                    .where((c) => c['student_id']?.toString() == studentId)
+                    .toList();
+                for (var c in studentContracts) {
+                  childTotalDue +=
+                      ((c['total_tuition_due'] ?? c['total_amount'] ?? 0.0)
+                              as num)
+                          .toDouble();
+                  childPaid += ((c['amount_paid'] ?? 0.0) as num).toDouble();
+                }
+              }
+
+              // Final fallback: if there are contracts without explicit student_id tags, divide total tuition by student count
+              if (childTotalDue == 0.0 && _contracts.isNotEmpty) {
+                double parentTotalTuition = 0.0;
+                double parentTotalPaid = 0.0;
+                for (var c in _contracts) {
+                  parentTotalTuition +=
+                      ((c['total_tuition_due'] ?? c['total_amount'] ?? 0.0)
+                              as num)
+                          .toDouble();
+                }
+                for (var inst in _installments) {
+                  parentTotalPaid +=
+                      ((inst['amount_paid'] ?? inst['paid_amount'] ?? 0.0)
+                              as num)
+                          .toDouble();
+                }
+                final numStudents = _students.isNotEmpty ? _students.length : 1;
+                childTotalDue = parentTotalTuition / numStudents;
+                childPaid = parentTotalPaid / numStudents;
+              }
+
+              final double childRemaining = childTotalDue - childPaid;
+              final double progressPct = childTotalDue > 0
+                  ? (childPaid / childTotalDue)
+                  : 0.0;
+
+              bool hasOverdueInstallment = false;
+              final now = DateTime.now();
+              for (var inst in studentInsts) {
+                final status = inst['status']?.toString().toUpperCase();
+                final dueDateStr = inst['due_date']?.toString();
+                DateTime? dueDate;
+                if (dueDateStr != null && dueDateStr.isNotEmpty) {
+                  dueDate = DateTime.tryParse(dueDateStr);
+                }
+                final amtPaid =
+                    ((inst['amount_paid'] ?? inst['paid_amount'] ?? 0.0) as num)
+                        .toDouble();
+                final amtDue =
+                    ((inst['amount_due'] ?? inst['amount'] ?? 0.0) as num)
+                        .toDouble();
+                final isPaid =
+                    status == 'PAID' || (amtDue > 0 && amtPaid >= amtDue);
+                if (!isPaid &&
+                    (status == 'OVERDUE' ||
+                        (dueDate != null && dueDate.isBefore(now)))) {
+                  hasOverdueInstallment = true;
+                  break;
+                }
+              }
+
+              String statusText = 'À jour';
+              Color statusBg = const Color(0xFFEFF6FF);
+              Color statusColor = FutaTheme.blueIndigo;
+
+              if (childTotalDue > 0 && childPaid >= childTotalDue) {
+                statusText = 'Réglé';
+                statusBg = FutaTheme.emeraldLight;
+                statusColor = FutaTheme.success;
+              } else if (hasOverdueInstallment) {
+                statusText = 'En retard';
+                statusBg = const Color(0xFFFEE2E2);
+                statusColor = FutaTheme.error;
+              } else if (childRemaining > 0 && childPaid > 0) {
+                statusText = 'Partiel';
+                statusBg = const Color(0xFFFEF3C7);
+                statusColor = const Color(0xFFD97706);
+              } else {
+                statusText = 'À jour';
+                statusBg = const Color(0xFFEFF6FF);
+                statusColor = FutaTheme.blueIndigo;
+              }
+
+              return Container(
+                margin: EdgeInsets.zero,
+
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFF1E1B4B), // Deep Slate Indigo
+                      FutaTheme.blueDark, // Brand Deep Indigo
+                      Color(0xFF313B9B), // Vibrant Indigo
+                    ],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: FutaTheme.blueDark.withOpacity(0.2),
+                      blurRadius: 14,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 22,
+                          backgroundColor: Colors.white.withOpacity(0.2),
+                          child: CircleAvatar(
+                            radius: 20,
+                            backgroundColor: FutaTheme.emeraldGreen,
+                            child: Text(
+                              (student['first_name'] as String?)?.isNotEmpty ==
+                                      true
+                                  ? student['first_name'][0]
+                                  : 'E',
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                fullName.isNotEmpty ? fullName : 'Élève',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '$classroom • $matricule',
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: statusBg,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            statusText,
+                            style: TextStyle(
+                              color: statusColor,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+
+                    // Financial metrics row
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'PAYÉ / TOTAL',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white60,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${currencyFormat.format(childPaid)} / ${currencyFormat.format(childTotalDue)} FC',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (childRemaining > 0)
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              const Text(
+                                'SOLDE DÛ',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white60,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${currencyFormat.format(childRemaining)} FC',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFFFCA5A5),
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: LinearProgressIndicator(
+                        value: progressPct,
+                        minHeight: 6,
+                        backgroundColor: Colors.white.withOpacity(0.15),
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                          FutaTheme.emeraldGreen,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 34,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white.withOpacity(0.2),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            side: const BorderSide(color: Colors.white30),
+                          ),
+                        ),
+                        icon: const Icon(
+                          Icons.arrow_forward,
+                          size: 14,
+                          color: Colors.white,
+                        ),
+                        label: const Text(
+                          'Voir le dossier élève',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        onPressed: () {
+                          if (studentId.isNotEmpty) {
+                            context.push('/student-detail/$studentId');
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+        if (_students.length > 1) ...[
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(
+              _students.length,
+              (idx) => AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                width: _activeChildIndex == idx ? 18 : 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: _activeChildIndex == idx
+                      ? FutaTheme.blueDark
+                      : Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
   // TAB 1: SCORE DE CRÉDIT (Accueil)
   Widget _buildScoreTab() {
     final currencyFormat = NumberFormat.decimalPattern('fr');
@@ -899,97 +1335,269 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     return ListView(
       padding: const EdgeInsets.all(16.0),
       children: [
-        // Credit Score Circular Gauge Box
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: CreditScoreGauge(
-              score: _futaScore,
-              previousScore: _previousFutaScore,
-            ),
-          ),
-        ),
+        // Children Information Carousel Card
+        _buildChildrenCarousel(),
         const SizedBox(height: 16),
 
-        // Total tuition card banner (moved below the gauge)
+        // Total tuition card banner with contract breakdown
         Container(
           padding: const EdgeInsets.all(24.0),
           decoration: BoxDecoration(
             color: FutaTheme.blueDark,
             borderRadius: BorderRadius.circular(20),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'TOTAL DÛ',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${currencyFormat.format(_totalRemainingDebt)} USD',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 6,
-                      children: [
-                        const Icon(
-                          Icons.calendar_today,
-                          color: Colors.white54,
-                          size: 14,
-                        ),
-                        Text(
-                          upcomingInstallments.isNotEmpty
-                              ? 'Prochain prélèvement : ${_formatDate(upcomingInstallments.first['due_date'])}'
-                              : 'Aucun prélèvement prévu',
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: FutaTheme.blueDark,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                onPressed: () {
-                  if (_installments.any((i) => i['status'] != 'PAID')) {
-                    _payAllRemainingDebt();
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Toutes les échéances sont réglées !'),
-                      ),
-                    );
-                  }
-                },
-                child: const Text('Régler tout'),
+            boxShadow: [
+              BoxShadow(
+                color: FutaTheme.blueDark.withOpacity(0.2),
+                blurRadius: 14,
+                offset: const Offset(0, 6),
               ),
             ],
           ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'TOTAL DÛ GLOBAL',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${currencyFormat.format(_totalRemainingDebt)} FC',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 6,
+                          children: [
+                            const Icon(
+                              Icons.calendar_today,
+                              color: Colors.white54,
+                              size: 14,
+                            ),
+                            Text(
+                              upcomingInstallments.isNotEmpty
+                                  ? 'Prochain prélèvement : ${_formatDate(upcomingInstallments.first['due_date'])}'
+                                  : 'Aucun prélèvement prévu',
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: FutaTheme.blueDark,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: () {
+                      if (_installments.any((i) => i['status'] != 'PAID')) {
+                        _payAllRemainingDebt();
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Toutes les échéances sont réglées !',
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                    child: const Text('Régler tout'),
+                  ),
+                ],
+              ),
+
+              // BREAKDOWN OF CONTRACTS SECTION
+              if (_contracts.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                const Divider(color: Colors.white24, height: 1),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'RÉPARTITION PAR CONTRAT',
+                      style: TextStyle(
+                        color: Colors.white60,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.1,
+                      ),
+                    ),
+                    Text(
+                      '${_contracts.length} contrat${_contracts.length > 1 ? 's' : ''}',
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Column(
+                  children: _contracts.map((contract) {
+                    final cId = contract['id']?.toString() ?? '';
+                    final isMerchant = (contract['school_id']?.toString() ?? '')
+                        .startsWith('merchant_');
+
+                    // Calculate contract specific remaining balance
+                    final cInsts = _installments
+                        .where((inst) => inst['contract_id']?.toString() == cId)
+                        .toList();
+                    double cTotal = 0.0;
+                    double cPaid = 0.0;
+                    if (cInsts.isNotEmpty) {
+                      for (var inst in cInsts) {
+                        cTotal +=
+                            ((inst['amount_due'] ?? inst['amount'] ?? 0.0)
+                                    as num)
+                                .toDouble();
+                        cPaid +=
+                            ((inst['amount_paid'] ?? inst['paid_amount'] ?? 0.0)
+                                    as num)
+                                .toDouble();
+                      }
+                    } else {
+                      cTotal =
+                          ((contract['total_tuition_due'] ??
+                                      contract['total_amount'] ??
+                                      0.0)
+                                  as num)
+                              .toDouble();
+                      cPaid = ((contract['amount_paid'] ?? 0.0) as num)
+                          .toDouble();
+                    }
+                    final double cRemaining = cTotal - cPaid;
+                    final String currency = contract['currency'] ?? 'FC';
+
+                    String title = '';
+                    if (isMerchant) {
+                      final merchantName =
+                          contract['profiles']?['first_name'] ?? 'Commerçant';
+                      final desc = contract['description']?.toString() ?? '';
+                      title = desc.isNotEmpty
+                          ? '$desc chez $merchantName'
+                          : 'Achat chez $merchantName';
+                    } else {
+                      final schoolName =
+                          contract['school_profiles']?['school_name'] ??
+                          contract['profiles']?['first_name'] ??
+                          'École';
+                      final desc = contract['description']?.toString() ?? '';
+                      if (desc.isNotEmpty && desc != 'Frais de scolarité') {
+                        title = '$desc ($schoolName)';
+                      } else {
+                        title = 'Frais Scolaires $schoolName';
+                      }
+                    }
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.white12),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: isMerchant
+                                    ? const Color(0xFFFEF3C7).withOpacity(0.3)
+                                    : FutaTheme.emeraldLight.withOpacity(0.3),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                isMerchant
+                                    ? Icons.shopping_bag_outlined
+                                    : Icons.school_outlined,
+                                size: 16,
+                                color: isMerchant
+                                    ? const Color(0xFFD97706)
+                                    : FutaTheme.emeraldGreen,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                title,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  '${currencyFormat.format(cRemaining > 0 ? cRemaining : cTotal)} $currency',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                if (cTotal > 0)
+                                  Text(
+                                    cRemaining <= 0
+                                        ? 'Payé en totalité'
+                                        : 'Reste à payer',
+                                    style: TextStyle(
+                                      color: cRemaining <= 0
+                                          ? FutaTheme.emeraldGreen
+                                          : Colors.white60,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ],
+          ),
         ),
+
         const SizedBox(height: 24),
 
         // Section: "Paiements à venir" (Upcoming payments)
@@ -1781,48 +2389,108 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     );
   }
 
-  // TAB 4: PROFIL PARENT & CHILDREN
+  // TAB 4: PROFIL PARENT
   Widget _buildProfileTab() {
     return ListView(
       padding: const EdgeInsets.all(16.0),
       children: [
-        // Parent Metadata Details Card
+        // 1. Ultra-Premium Parent Profile Info Card
         Card(
+          elevation: 0.5,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(color: Colors.grey.shade200),
+          ),
           child: Padding(
             padding: const EdgeInsets.all(24.0),
             child: Column(
               children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: FutaTheme.emeraldLight,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.verified,
+                            size: 14,
+                            color: FutaTheme.emeraldGreen,
+                          ),
+                          SizedBox(width: 4),
+                          Text(
+                            'Compte Vérifié',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: FutaTheme.emeraldGreen,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.edit_outlined,
+                        color: FutaTheme.blueDark,
+                        size: 20,
+                      ),
+                      onPressed: _uploadProfilePicture,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
                 GestureDetector(
                   onTap: _uploadProfilePicture,
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
-                      CircleAvatar(
-                        radius: 40,
-                        backgroundColor: FutaTheme.blueDark,
-                        backgroundImage: _profile?['photo_url'] != null
-                            ? NetworkImage(_profile!['photo_url'])
-                            : null,
-                        child: _profile?['photo_url'] == null
-                            ? Text(
-                                '${_profile?['first_name']?[0] ?? 'J'}${_profile?['last_name']?[0] ?? 'D'}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              )
-                            : null,
+                      Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: LinearGradient(
+                            colors: [
+                              FutaTheme.emeraldGreen,
+                              FutaTheme.blueIndigo,
+                            ],
+                          ),
+                        ),
+                        child: CircleAvatar(
+                          radius: 42,
+                          backgroundColor: FutaTheme.blueDark,
+                          backgroundImage: _profile?['photo_url'] != null
+                              ? NetworkImage(_profile!['photo_url'])
+                              : null,
+                          child: _profile?['photo_url'] == null
+                              ? Text(
+                                  '${_profile?['first_name']?[0] ?? 'J'}${_profile?['last_name']?[0] ?? 'D'}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 26,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                )
+                              : null,
+                        ),
                       ),
                       Positioned(
                         bottom: 0,
                         right: 0,
                         child: CircleAvatar(
-                          radius: 12,
+                          radius: 14,
                           backgroundColor: FutaTheme.emeraldGreen,
                           child: const Icon(
                             Icons.camera_alt,
-                            size: 12,
+                            size: 14,
                             color: Colors.white,
                           ),
                         ),
@@ -1832,114 +2500,66 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  '${_profile?['first_name'] ?? 'Jean-Luc'} ${_profile?['last_name'] ?? 'Dupont'}',
+                  '${_profile?['first_name'] ?? 'Parent'} ${_profile?['last_name'] ?? ''}'
+                      .trim(),
                   style: const TextStyle(
-                    fontSize: 20,
+                    fontSize: 22,
                     fontWeight: FontWeight.bold,
                     color: FutaTheme.blueDark,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 Text(
-                  _profile?['phone_number'] ?? '+243 81 234 5678',
-                  style: const TextStyle(color: FutaTheme.textLight),
+                  _profile?['phone_number'] ?? '+243 000 000 000',
+                  style: const TextStyle(
+                    color: FutaTheme.textLight,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-                const SizedBox(height: 16),
-                const Divider(),
-                const SizedBox(height: 16),
-                _buildProfileRow(
-                  Icons.location_on,
-                  'Adresse',
-                  _getCleanAddress(_profile?['address']),
-                ),
-                const SizedBox(height: 12),
-                _buildProfileRow(
-                  Icons.verified_user,
-                  'Statut du compte',
-                  'Vérifié',
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Column(
+                    children: [
+                      _buildProfileRow(
+                        Icons.location_on_outlined,
+                        'Adresse',
+                        _getCleanAddress(_profile?['address']),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildProfileRow(
+                        Icons.person_outline,
+                        'Rôle',
+                        'Parent d\'élève',
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
 
-        // Children Expandable Roster
+        // 2. Score Gauge Card (2nd Widget)
         Card(
-          child: ExpansionTile(
-            initiallyExpanded: true,
-            leading: const Icon(Icons.child_care, color: FutaTheme.blueIndigo),
-            title: const Text(
-              'Liste des Enfants Enregistrés',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: FutaTheme.blueDark,
-              ),
+          elevation: 0.5,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(color: Colors.grey.shade200),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: CreditScoreGauge(
+              score: _futaScore,
+              previousScore: _previousFutaScore,
             ),
-            children: _students.map((student) {
-              final isPaid =
-                  student['academic_score'] >=
-                  15.0; // Mock condition or payment relation
-              return Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16.0,
-                  vertical: 6.0,
-                ),
-                child: Card(
-                  elevation: 0,
-                  color: FutaTheme.backgroundLight,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(color: Colors.grey.shade100),
-                  ),
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: FutaTheme.emeraldLight,
-                      child: Text(
-                        student['first_name']?[0] ?? '',
-                        style: const TextStyle(
-                          color: FutaTheme.emeraldGreen,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    title: Text(
-                      '${student['first_name']} ${student['last_name']}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: FutaTheme.blueDark,
-                      ),
-                    ),
-                    subtitle: Text(
-                      'Classe: ${student['classroom'] ?? 'Non renseignée'} • Moyenne: ${student['academic_score']}/20',
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    trailing: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isPaid
-                            ? FutaTheme.emeraldLight
-                            : const Color(0xFFFEF3C7),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        isPaid ? 'Payé' : 'Partiel',
-                        style: TextStyle(
-                          color: isPaid
-                              ? FutaTheme.success
-                              : const Color(0xFFD97706),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
           ),
         ),
       ],
@@ -2114,8 +2734,11 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     final user = FirebaseAuth.instance.currentUser;
     final email = user?.email ?? 'parent@futa.cd';
     final photoUrl = _profile?['photo_url'] as String?;
-    final parentName = '${_profile?['first_name'] ?? ''} ${_profile?['last_name'] ?? ''}'.trim();
-    final initials = '${_profile?['first_name']?[0] ?? 'J'}${_profile?['last_name']?[0] ?? 'D'}';
+    final parentName =
+        '${_profile?['first_name'] ?? ''} ${_profile?['last_name'] ?? ''}'
+            .trim();
+    final initials =
+        '${_profile?['first_name']?[0] ?? 'J'}${_profile?['last_name']?[0] ?? 'D'}';
 
     return Drawer(
       backgroundColor: Colors.white,

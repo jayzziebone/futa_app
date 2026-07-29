@@ -130,3 +130,54 @@ Output directory: `Futa/build/web/`
   ```
 - **Vercel / Netlify**:
   Connect your GitHub repository `https://github.com/jayzziebone/futa_app.git` and set build directory to `Futa/build/web`.
+
+---
+
+## 🔄 Quick Guide: How to Release a New Build Update
+
+When you make changes to the app and want to publish a new build update for **Android**, **iOS**, or **Web**, follow these instructions:
+
+### 📱 1. Android New Build Update (Google Play Console)
+
+1. **Build a new signed App Bundle** (always increment `--build-number` with each update):
+   ```bash
+   cd Futa
+   flutter build appbundle --release --build-number=2
+   ```
+2. **Output File Path**:
+   `Futa/build/app/outputs/bundle/release/app-release.aab`
+3. **Upload to Google Play Console**:
+   * Open [Google Play Console](https://play.google.com/console) > **Futa**.
+   * Go to **Internal testing**, **Closed testing**, or **Production**.
+   * Click **Create new release**, drag and drop `app-release.aab`, add release notes, and click **Save & Release**.
+
+---
+
+### 🍏 2. iOS New Build Update (TestFlight / App Store Connect)
+
+1. **Build a new signed IPA archive** (always increment `--build-number` with each update):
+   ```bash
+   cd Futa
+   flutter build ipa --release --build-number=2
+   ```
+2. **Output File Path**:
+   `Futa/build/ios/ipa/Futa.ipa`
+3. **Upload to App Store Connect / TestFlight**:
+   * **Option A (Transporter App)**: Drag and drop `Futa.ipa` into the **Apple Transporter** macOS app and click **Deliver**.
+   * **Option B (Xcode)**: Open `Futa/ios/Runner.xcworkspace` in Xcode, select **Product > Archive**, and click **Distribute App**.
+   * Once uploaded, the new build will appear in **App Store Connect > TestFlight** automatically.
+
+---
+
+### 🌐 3. Web New Build Update (Firebase Hosting)
+
+1. **Compile the production web app**:
+   ```bash
+   cd Futa
+   flutter build web --release
+   ```
+2. **Deploy to Firebase Hosting**:
+   ```bash
+   npx -y firebase-tools deploy --only hosting
+   ```
+

@@ -19,11 +19,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final _lastNameController = TextEditingController();
   final _addressController = TextEditingController();
   final _phoneController = TextEditingController();
-  
+
   // Administrators specific controllers
   final _businessNameController = TextEditingController();
   final _responsibleNameController = TextEditingController();
-  
+
   String _selectedRole = 'client'; // 'client' or 'admin'
   String _selectedSubRole = 'parent'; // 'parent', 'school', 'merchant'
   bool _isLoading = false;
@@ -37,9 +37,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       if (user != null) {
         final idToken = await user.getIdToken();
         if (idToken != null) {
-          Supabase.instance.client.rest.headers['Authorization'] = 'Bearer $idToken';
+          Supabase.instance.client.rest.headers['Authorization'] =
+              'Bearer $idToken';
           try {
-            Supabase.instance.client.storage.headers['Authorization'] = 'Bearer $idToken';
+            Supabase.instance.client.storage.headers['Authorization'] =
+                'Bearer $idToken';
           } catch (_) {}
         }
       }
@@ -57,7 +59,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       if (user == null) {
         context.go('/login');
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Veuillez d\'abord vous connecter avec votre numéro de téléphone.')),
+          const SnackBar(
+            content: Text(
+              'Veuillez d\'abord vous connecter avec votre numéro de téléphone.',
+            ),
+          ),
         );
       } else {
         if (user.phoneNumber != null && user.phoneNumber!.isNotEmpty) {
@@ -103,9 +109,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text(
-                'Profil scolaire existant détecté et pré-rempli !',
-              ),
+              content: Text('Profil scolaire existant détecté et pré-rempli !'),
               backgroundColor: FutaTheme.success,
             ),
           );
@@ -134,10 +138,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       await _setupSupabaseSession();
       final phone = _phoneController.text.trim();
       final address = _addressController.text.trim();
-      
+
       final currentUser = FirebaseAuth.instance.currentUser;
       if (currentUser == null) {
-        throw Exception("Aucune session utilisateur active trouvée. Veuillez vous reconnecter.");
+        throw Exception(
+          "Aucune session utilisateur active trouvée. Veuillez vous reconnecter.",
+        );
       }
       final String userId = currentUser.uid;
 
@@ -187,7 +193,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             'phone_number': phone.isNotEmpty ? phone : '+243812345678',
             'address': address,
           });
-          
+
           // Also link user to merchant users table
           try {
             await Supabase.instance.client.from('users').upsert({
@@ -218,9 +224,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur d\'inscription : $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erreur d\'inscription : $e')));
       }
     } finally {
       if (mounted) {
@@ -239,10 +245,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           onPressed: () {
             if (_currentStep > 1) {
               setState(() => _currentStep--);
-            } else {
+            } else if (context.canPop()) {
               context.pop();
+            } else {
+              context.go('/login');
             }
           },
+
         ),
         title: const Text('FUTA'),
         centerTitle: true,
@@ -322,12 +331,20 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 CircleAvatar(
                   radius: 35,
                   backgroundColor: Colors.blue.shade50,
-                  child: const Icon(Icons.people, size: 35, color: FutaTheme.blueIndigo),
+                  child: const Icon(
+                    Icons.people,
+                    size: 35,
+                    color: FutaTheme.blueIndigo,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 const Text(
-                  'Parent',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: FutaTheme.blueDark),
+                  'Particulier',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: FutaTheme.blueDark,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 const Text(
@@ -341,7 +358,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   child: OutlinedButton(
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
                       backgroundColor: Colors.grey.shade100,
                       side: BorderSide.none,
                     ),
@@ -352,9 +371,15 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                         _currentStep = 2;
                       });
                     },
-                    child: const Text('Choisir ce profil', style: TextStyle(color: FutaTheme.blueDark, fontWeight: FontWeight.bold)),
+                    child: const Text(
+                      'Choisir ce profil',
+                      style: TextStyle(
+                        color: FutaTheme.blueDark,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                )
+                ),
               ],
             ),
           ),
@@ -370,12 +395,20 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 CircleAvatar(
                   radius: 35,
                   backgroundColor: FutaTheme.blueDark.withOpacity(0.05),
-                  child: const Icon(Icons.shield_outlined, size: 35, color: FutaTheme.blueDark),
+                  child: const Icon(
+                    Icons.shield_outlined,
+                    size: 35,
+                    color: FutaTheme.blueDark,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 const Text(
                   'Administrateur',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: FutaTheme.blueDark),
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: FutaTheme.blueDark,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 const Text(
@@ -389,7 +422,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   child: OutlinedButton(
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
                       backgroundColor: Colors.grey.shade100,
                       side: BorderSide.none,
                     ),
@@ -399,16 +434,44 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                         _currentStep = 2;
                       });
                     },
-                    child: const Text('Choisir ce profil', style: TextStyle(color: FutaTheme.blueDark, fontWeight: FontWeight.bold)),
+                    child: const Text(
+                      'Choisir ce profil',
+                      style: TextStyle(
+                        color: FutaTheme.blueDark,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                )
+                ),
               ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+        Center(
+          child: TextButton.icon(
+            onPressed: () {
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go('/login');
+              }
+            },
+            icon: const Icon(Icons.arrow_back, size: 16, color: FutaTheme.textLight),
+            label: const Text(
+              'Modifier le numéro de téléphone (Retour Connexion)',
+              style: TextStyle(
+                fontSize: 13,
+                color: FutaTheme.textLight,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ),
       ],
     );
   }
+
 
   // STEP 2 (Parent): Parent Form Info Card
   Widget _buildParentInfoStep() {
@@ -445,7 +508,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               style: TextStyle(fontSize: 14, color: FutaTheme.textLight),
             ),
             const SizedBox(height: 32),
-            
+
             TextField(
               controller: _firstNameController,
               decoration: const InputDecoration(labelText: 'Prénom'),
@@ -470,14 +533,19 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               decoration: const InputDecoration(labelText: 'Adresse'),
             ),
             const SizedBox(height: 32),
-            
+
             ElevatedButton(
               onPressed: _isLoading
                   ? null
                   : () {
-                      if (_firstNameController.text.trim().isEmpty || _lastNameController.text.trim().isEmpty) {
+                      if (_firstNameController.text.trim().isEmpty ||
+                          _lastNameController.text.trim().isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Veuillez remplir le nom et le prénom.')),
+                          const SnackBar(
+                            content: Text(
+                              'Veuillez remplir le nom et le prénom.',
+                            ),
+                          ),
                         );
                         return;
                       }
@@ -535,7 +603,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               style: TextStyle(fontSize: 14, color: FutaTheme.textLight),
             ),
             const SizedBox(height: 32),
-            
+
             // School Option
             InkWell(
               onTap: () => setState(() => _selectedSubRole = 'school'),
@@ -543,7 +611,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   border: Border.all(
-                    color: _selectedSubRole == 'school' ? FutaTheme.emeraldGreen : Colors.grey.shade200,
+                    color: _selectedSubRole == 'school'
+                        ? FutaTheme.emeraldGreen
+                        : Colors.grey.shade200,
                     width: _selectedSubRole == 'school' ? 2 : 1,
                   ),
                   borderRadius: BorderRadius.circular(16),
@@ -556,18 +626,30 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Institution / École', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          Text(
+                            'Institution / École',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
                           SizedBox(height: 4),
-                          Text('Gérer les inscriptions et les frais académiques.', style: TextStyle(fontSize: 12, color: FutaTheme.textLight)),
+                          Text(
+                            'Gérer les inscriptions et les frais académiques.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: FutaTheme.textLight,
+                            ),
+                          ),
                         ],
                       ),
-                    )
+                    ),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 16),
-            
+
             // Merchant Option
             InkWell(
               onTap: () => setState(() => _selectedSubRole = 'merchant'),
@@ -575,7 +657,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   border: Border.all(
-                    color: _selectedSubRole == 'merchant' ? FutaTheme.emeraldGreen : Colors.grey.shade200,
+                    color: _selectedSubRole == 'merchant'
+                        ? FutaTheme.emeraldGreen
+                        : Colors.grey.shade200,
                     width: _selectedSubRole == 'merchant' ? 2 : 1,
                   ),
                   borderRadius: BorderRadius.circular(16),
@@ -588,17 +672,29 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Commerçant / Merchant', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          Text(
+                            'Commerçant / Merchant',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
                           SizedBox(height: 4),
-                          Text('Gérer la facturation et les paiements directs.', style: TextStyle(fontSize: 12, color: FutaTheme.textLight)),
+                          Text(
+                            'Gérer la facturation et les paiements directs.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: FutaTheme.textLight,
+                            ),
+                          ),
                         ],
                       ),
-                    )
+                    ),
                   ],
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 32),
             ElevatedButton(
               onPressed: () {
@@ -643,12 +739,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              isSchool ? 'Renseignez les coordonnées de l\'école.' : 'Renseignez les coordonnées du commerce.',
+              isSchool
+                  ? 'Renseignez les coordonnées de l\'école.'
+                  : 'Renseignez les coordonnées du commerce.',
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 14, color: FutaTheme.textLight),
             ),
             const SizedBox(height: 32),
-            
+
             TextField(
               controller: _businessNameController,
               decoration: InputDecoration(
@@ -659,7 +757,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             TextField(
               controller: _responsibleNameController,
               decoration: InputDecoration(
-                labelText: isSchool ? 'Nom du responsable admin' : 'Nom du responsable',
+                labelText: isSchool
+                    ? 'Nom du responsable admin'
+                    : 'Nom du responsable',
               ),
             ),
             const SizedBox(height: 16),
@@ -675,16 +775,23 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             TextField(
               controller: _addressController,
               decoration: InputDecoration(
-                labelText: isSchool ? 'Adresse de l\'école' : 'Adresse du commerce',
+                labelText: isSchool
+                    ? 'Adresse de l\'école'
+                    : 'Adresse du commerce',
               ),
             ),
             const SizedBox(height: 32),
-            
+
             _isLoading
-                ? const Center(child: CircularProgressIndicator(color: FutaTheme.emeraldGreen))
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      color: FutaTheme.emeraldGreen,
+                    ),
+                  )
                 : ElevatedButton(
                     onPressed: () {
-                      if (_businessNameController.text.trim().isEmpty || _responsibleNameController.text.trim().isEmpty) {
+                      if (_businessNameController.text.trim().isEmpty ||
+                          _responsibleNameController.text.trim().isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
