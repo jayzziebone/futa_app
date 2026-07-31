@@ -40,21 +40,53 @@ def token_exchange(request: TokenExchangeRequest):
             role = "client"
             sub_role = "parent"
         else:
-            school_res = supabase_client.table("school_profiles").select("*").eq("id", uid).execute()
-            if school_res.data:
-                profile = school_res.data[0]
+            # Check school_admins mapping table first by user_id
+            school_admin_res = supabase_client.table("school_admins").select("*, school_profiles(*)").eq("user_id", uid).execute()
+            if school_admin_res.data:
+                profile = school_admin_res.data[0]
                 role = "admin"
                 sub_role = "school"
             else:
-                merchant_res = supabase_client.table("merchant_profiles").select("*").eq("id", uid).execute()
-                if merchant_res.data:
-                    profile = merchant_res.data[0]
+                # Check pending invitations in school_admins by phone number
+                clean_phone = phone.replace(" ", "") if phone else ""
+                pending_admin = None
+                if clean_phone:
+                    try:
+                        pending_res = supabase_client.table("school_admins").select("*, school_profiles(*)").eq("phone_number", clean_phone).execute()
+                        if pending_res.data:
+                            pending_admin = pending_res.data[0]
+                    except Exception:
+                        pass
+                
+                if pending_admin:
+                    # Link this user_id to the pre-registered admin invite
+                    try:
+                        supabase_client.table("school_admins").update({
+                            "user_id": uid,
+                            "status": "ACTIVE"
+                        }).eq("id", pending_admin["id"]).execute()
+                    except Exception as claim_err:
+                        print(f"Failed to claim school admin invite: {claim_err}")
+                    profile = pending_admin
                     role = "admin"
-                    sub_role = "merchant"
+                    sub_role = "school"
                 else:
-                    profile = None
-                    role = ""
-                    sub_role = ""
+                    school_res = supabase_client.table("school_profiles").select("*").eq("id", uid).execute()
+                    if school_res.data:
+                        profile = school_res.data[0]
+                        role = "admin"
+                        sub_role = "school"
+                    else:
+                        merchant_res = supabase_client.table("merchant_profiles").select("*").eq("id", uid).execute()
+                        if merchant_res.data:
+                            profile = merchant_res.data[0]
+                            role = "admin"
+                            sub_role = "merchant"
+                        else:
+                            profile = None
+                            role = ""
+                            sub_role = ""
+
         
         if profile:
             # Profile exists, nothing more to do here

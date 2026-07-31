@@ -114,11 +114,19 @@ def verify_firebase_token(token: str) -> dict:
                     decoded_token["role"] = "client"
                     decoded_token["sub_role"] = "parent"
                 else:
-                    # 2. Check school_profiles (school admin)
-                    school_res = supabase_client.table("school_profiles").select("id").eq("id", uid).execute()
-                    if school_res.data:
+                    # 2. Check school_admins mapping table or school_profiles (school admin)
+                    school_admin_res = supabase_client.table("school_admins").select("*").eq("user_id", uid).execute()
+                    if school_admin_res.data:
                         decoded_token["role"] = "admin"
                         decoded_token["sub_role"] = "school"
+                        decoded_token["school_id"] = school_admin_res.data[0].get("school_id")
+                    else:
+                        school_res = supabase_client.table("school_profiles").select("id").eq("id", uid).execute()
+                        if school_res.data:
+                            decoded_token["role"] = "admin"
+                            decoded_token["sub_role"] = "school"
+                            decoded_token["school_id"] = school_res.data[0].get("id")
+
                     else:
                         # 3. Check merchant_profiles (merchant admin)
                         merchant_res = supabase_client.table("merchant_profiles").select("id").eq("id", uid).execute()
