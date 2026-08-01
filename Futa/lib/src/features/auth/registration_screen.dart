@@ -272,27 +272,46 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             }
 
             final schoolId = schoolQuery['id'].toString();
+            final cleanPhone = phone.isNotEmpty ? phone : '+243812345678';
 
-            // Check admin count limit (max 4)
-            final existingAdmins = await Supabase.instance.client
+            // Check if there is an existing pending invite or admin entry for this phone or user in school_admins
+            final existingInvite = await Supabase.instance.client
                 .from('school_admins')
-                .select('id')
-                .eq('school_id', schoolId);
+                .select('*')
+                .eq('school_id', schoolId)
+                .or('phone_number.eq.$cleanPhone,user_id.eq.$userId')
+                .maybeSingle();
 
-            if (existingAdmins.length >= 4) {
-              throw 'Cette école a déjà atteint la limite maximale de 4 administrateurs.';
+            if (existingInvite != null) {
+              // Update the existing pre-registered invite row!
+              await Supabase.instance.client.from('school_admins').update({
+                'user_id': userId,
+                'admin_name': responsibleName.isNotEmpty ? responsibleName : existingInvite['admin_name'],
+                'status': 'ACTIVE',
+              }).eq('id', existingInvite['id']);
+            } else {
+              // Check admin count limit (max 4)
+              final existingAdmins = await Supabase.instance.client
+                  .from('school_admins')
+                  .select('id')
+                  .eq('school_id', schoolId);
+
+              if (existingAdmins.length >= 4) {
+                throw 'Cette école a déjà atteint la limite maximale de 4 administrateurs.';
+              }
+
+              // Insert into school_admins mapping table
+              await Supabase.instance.client.from('school_admins').upsert({
+                'school_id': schoolId,
+                'user_id': userId,
+                'admin_name': responsibleName,
+                'phone_number': cleanPhone,
+                'role_title': 'Administrateur',
+                'status': 'ACTIVE',
+              });
             }
-
-            // Insert into school_admins mapping table
-            await Supabase.instance.client.from('school_admins').upsert({
-              'school_id': schoolId,
-              'user_id': userId,
-              'admin_name': responsibleName,
-              'phone_number': phone.isNotEmpty ? phone : '+243812345678',
-              'role_title': 'Administrateur',
-              'status': 'ACTIVE',
-            });
           }
+
         }
  else {
           // Upsert to merchant_profiles table

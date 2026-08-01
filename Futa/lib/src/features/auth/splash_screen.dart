@@ -55,30 +55,67 @@ class _SplashScreenState extends State<SplashScreen> {
         role = response['role'] ?? 'client';
         subRole = response['sub_role'] ?? 'parent';
       } else {
-        // Check school profiles
-        final schoolProfile = await Supabase.instance.client
-            .from('school_profiles')
+        // Check school_admins mapping table first by user_id or phone_number
+        final userPhone = user.phoneNumber ?? '';
+        final cleanPhone = userPhone.replaceAll(' ', '');
+
+        var schoolAdmin = await Supabase.instance.client
+            .from('school_admins')
             .select()
-            .eq('id', user.uid)
+            .eq('user_id', user.uid)
             .maybeSingle();
-        if (schoolProfile != null) {
+
+        if (schoolAdmin == null && cleanPhone.isNotEmpty) {
+          schoolAdmin = await Supabase.instance.client
+              .from('school_admins')
+              .select()
+              .eq('phone_number', cleanPhone)
+              .maybeSingle();
+
+          if (schoolAdmin != null) {
+            // Auto-claim pending invite for this user
+            try {
+              await Supabase.instance.client
+                  .from('school_admins')
+                  .update({'user_id': user.uid, 'status': 'ACTIVE'})
+                  .eq('id', schoolAdmin['id']);
+            } catch (e) {
+              debugPrint('Error claiming school admin invite: $e');
+            }
+          }
+        }
+
+        if (schoolAdmin != null) {
           role = 'admin';
           subRole = 'school';
-          response = schoolProfile;
+          response = schoolAdmin;
         } else {
-          // Check merchant profiles
-          final merchantProfile = await Supabase.instance.client
-              .from('merchant_profiles')
+          // Check school profiles
+          final schoolProfile = await Supabase.instance.client
+              .from('school_profiles')
               .select()
               .eq('id', user.uid)
               .maybeSingle();
-          if (merchantProfile != null) {
+          if (schoolProfile != null) {
             role = 'admin';
-            subRole = 'merchant';
-            response = merchantProfile;
+            subRole = 'school';
+            response = schoolProfile;
+          } else {
+            // Check merchant profiles
+            final merchantProfile = await Supabase.instance.client
+                .from('merchant_profiles')
+                .select()
+                .eq('id', user.uid)
+                .maybeSingle();
+            if (merchantProfile != null) {
+              role = 'admin';
+              subRole = 'merchant';
+              response = merchantProfile;
+            }
           }
         }
       }
+
 
       if (!mounted) return;
 
