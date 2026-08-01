@@ -187,8 +187,9 @@ class _LoginScreenState extends State<LoginScreen>
         subRole = response['sub_role'] ?? 'parent';
       } else {
         // Check school_admins mapping table first by user_id or phone_number
-        final userPhone = currentUser?.phoneNumber ?? _phoneController.text.trim();
+        final userPhone = FirebaseAuth.instance.currentUser?.phoneNumber ?? _phoneController.text.trim();
         final cleanPhone = userPhone.replaceAll(' ', '');
+
 
         var schoolAdmin = await Supabase.instance.client
             .from('school_admins')
