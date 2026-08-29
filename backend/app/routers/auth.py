@@ -188,18 +188,14 @@ def token_exchange(request: TokenExchangeRequest):
     }
     
     try:
-        headers = {}
-        if settings.SUPABASE_JWT_KID:
-            headers["kid"] = settings.SUPABASE_JWT_KID
-
         supabase_token = jwt.encode(
             payload,
             settings.SUPABASE_JWT_SECRET,
-            algorithm="HS256",
-            headers=headers
+            algorithm="HS256"
         )
     except Exception as jwt_err:
         raise HTTPException(status_code=500, detail=f"Erreur de génération du jeton d'accès Supabase: {str(jwt_err)}")
+
 
     return TokenExchangeResponse(
         supabase_token=supabase_token,
