@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import './config.dart';
@@ -73,6 +74,12 @@ class AuthTokenManager {
       _cachedUid = data['uid'] as String? ?? user.uid;
       _expiry = DateTime.now().add(const Duration(hours: 23));
 
+      // Automatically sync Supabase REST and Storage headers
+      Supabase.instance.client.rest.headers['Authorization'] = 'Bearer $_cachedToken';
+      try {
+        Supabase.instance.client.storage.headers['Authorization'] = 'Bearer $_cachedToken';
+      } catch (_) {}
+
       return SessionInfo(
         supabaseToken: _cachedToken!,
         uid: _cachedUid!,
@@ -100,6 +107,21 @@ class AuthTokenManager {
     return session?.supabaseToken;
   }
 
+  static Future<void> applySupabaseHeaders() async {
+    final token = await getSupabaseToken();
+    if (token != null && token.isNotEmpty) {
+      Supabase.instance.client.rest.headers['Authorization'] = 'Bearer $token';
+      try {
+        Supabase.instance.client.storage.headers['Authorization'] = 'Bearer $token';
+      } catch (_) {}
+    } else {
+      Supabase.instance.client.rest.headers['Authorization'] = 'Bearer ${Config.supabaseAnonKey}';
+      try {
+        Supabase.instance.client.storage.headers['Authorization'] = 'Bearer ${Config.supabaseAnonKey}';
+      } catch (_) {}
+    }
+  }
+
   static void cacheRole(String role, String subRole, {String? uid}) {
     _cachedRole = role;
     _cachedSubRole = subRole;
@@ -112,7 +134,9 @@ class AuthTokenManager {
     _cachedSubRole = null;
     _cachedUid = null;
     _expiry = null;
+    Supabase.instance.client.rest.headers['Authorization'] = 'Bearer ${Config.supabaseAnonKey}';
     debugPrint('FUTA AuthManager: Cached session cleared.');
   }
 }
+
 

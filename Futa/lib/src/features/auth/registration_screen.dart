@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:dio/dio.dart';
 import '../../core/theme.dart';
 import '../../core/config.dart';
+import '../../core/auth_token_manager.dart';
 
 class RegistrationScreen extends StatefulWidget {
   const RegistrationScreen({super.key});
@@ -23,10 +24,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   // Administrators specific controllers
   final _businessNameController = TextEditingController();
   final _responsibleNameController = TextEditingController();
+  final _adminPhoneController = TextEditingController();
+  final _adminAddressController = TextEditingController();
 
   String _selectedRole = 'client'; // 'client' or 'admin'
-  String _selectedSubRole = 'parent'; // 'parent', 'school', 'merchant'
+  String _selectedSubRole = 'parent'; // 'parent', 'school', or 'merchant'
   bool _isLoading = false;
+  String? _errorMessage;
 
   String _schoolAdminMode = 'create'; // 'create' or 'join'
   final _schoolCodeController = TextEditingController();
@@ -65,22 +69,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
   Future<void> _setupSupabaseSession() async {
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        final idToken = await user.getIdToken();
-        if (idToken != null) {
-          Supabase.instance.client.rest.headers['Authorization'] =
-              'Bearer $idToken';
-          try {
-            Supabase.instance.client.storage.headers['Authorization'] =
-                'Bearer $idToken';
-          } catch (_) {}
-        }
-      }
+      await AuthTokenManager.applySupabaseHeaders();
     } catch (e) {
       debugPrint('Error setting up Supabase session: $e');
     }
   }
+
 
   @override
   void initState() {

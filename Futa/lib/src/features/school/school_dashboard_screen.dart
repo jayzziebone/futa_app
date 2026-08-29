@@ -9,6 +9,7 @@ import 'package:file_picker/file_picker.dart';
 import '../../core/theme.dart';
 import '../../core/config.dart';
 import '../../core/widgets/skeleton_shimmer.dart';
+import '../../core/auth_token_manager.dart';
 import './school_dashboard_mobile_layout.dart';
 import './school_dashboard_web_layout.dart';
 
@@ -23,6 +24,7 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
   bool _isLoading = true;
   bool _isUploading = false;
   String? _errorMessage;
+
   
   List<Map<String, dynamic>> _students = [];
   List<Map<String, dynamic>> _filteredStudents = [];
@@ -81,6 +83,9 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
         throw Exception("Aucune session utilisateur active trouvée. Veuillez vous reconnecter.");
       }
       final schoolId = user.uid;
+
+      // Ensure valid Supabase JWT headers
+      await AuthTokenManager.applySupabaseHeaders();
 
       // 0. Fetch School Profile details to display school name
       try {

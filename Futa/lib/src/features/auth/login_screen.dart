@@ -172,13 +172,8 @@ class _LoginScreenState extends State<LoginScreen>
       }
 
       // 2. Parallel fallback if backend token-exchange is temporarily unreachable
-      final firebaseUser = FirebaseAuth.instance.currentUser;
-      if (firebaseUser != null) {
-        final idToken = await firebaseUser.getIdToken();
-        if (idToken != null) {
-          Supabase.instance.client.rest.headers['Authorization'] = 'Bearer $idToken';
-        }
-      }
+      await AuthTokenManager.applySupabaseHeaders();
+
 
       final userPhone = FirebaseAuth.instance.currentUser?.phoneNumber ?? _phoneController.text.trim();
       final cleanPhone = userPhone.replaceAll(' ', '');

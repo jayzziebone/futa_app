@@ -10,6 +10,7 @@ import 'package:file_picker/file_picker.dart';
 import '../../core/theme.dart';
 import '../../core/config.dart';
 import '../../core/widgets/skeleton_shimmer.dart';
+import '../../core/auth_token_manager.dart';
 import 'widgets/credit_score_gauge.dart';
 
 class ParentDashboardScreen extends StatefulWidget {
@@ -113,6 +114,37 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     );
   }
 
+  Widget _buildStatusChip(String status) {
+    Color bg = const Color(0xFFFEF3C7);
+    Color text = const Color(0xFFD97706);
+
+    if (status == 'PAID') {
+      bg = const Color(0xFFD1FAE5);
+      text = const Color(0xFF059669);
+    } else if (status == 'OVERDUE') {
+      bg = const Color(0xFFFEE2E2);
+      text = const Color(0xFFDC2626);
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        status == 'PAID'
+            ? 'Payé'
+            : (status == 'OVERDUE' ? 'En retard' : 'En attente'),
+        style: TextStyle(
+          color: text,
+          fontWeight: FontWeight.bold,
+          fontSize: 10,
+        ),
+      ),
+    );
+  }
+
   String _getCleanAddress(String? rawAddress) {
     if (rawAddress == null || rawAddress.isEmpty) return 'Gombe, Kinshasa';
     return rawAddress.split('|').first.trim();
@@ -145,6 +177,9 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
         );
       }
       final userId = user.uid;
+
+      // Ensure valid Supabase JWT headers
+      await AuthTokenManager.applySupabaseHeaders();
 
       // 1. Fetch Profile
       final profileRes = await Supabase.instance.client
