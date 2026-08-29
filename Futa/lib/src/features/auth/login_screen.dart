@@ -183,16 +183,17 @@ class _LoginScreenState extends State<LoginScreen>
       final userPhone = FirebaseAuth.instance.currentUser?.phoneNumber ?? _phoneController.text.trim();
       final cleanPhone = userPhone.replaceAll(' ', '');
 
-      final results = await Future.wait([
+      final List<Future<dynamic>> lookupFutures = [
         Supabase.instance.client.from('profiles').select().eq('id', uid).maybeSingle(),
         Supabase.instance.client.from('school_admins').select().eq('user_id', uid).maybeSingle(),
-        if (cleanPhone.isNotEmpty)
-          Supabase.instance.client.from('school_admins').select().eq('phone_number', cleanPhone).maybeSingle()
-        else
-          Future.value(null),
+        cleanPhone.isNotEmpty
+            ? Supabase.instance.client.from('school_admins').select().eq('phone_number', cleanPhone).maybeSingle()
+            : Future<dynamic>.value(null),
         Supabase.instance.client.from('school_profiles').select().eq('id', uid).maybeSingle(),
         Supabase.instance.client.from('merchant_profiles').select().eq('id', uid).maybeSingle(),
-      ]);
+      ];
+
+      final results = await Future.wait(lookupFutures);
 
       final profileRes = results[0];
       final adminByIdRes = results[1];

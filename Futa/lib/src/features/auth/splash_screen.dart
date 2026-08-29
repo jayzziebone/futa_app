@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:dio/dio.dart';
 import '../../core/config.dart';
 import '../../core/theme.dart';
+import '../../core/auth_token_manager.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
