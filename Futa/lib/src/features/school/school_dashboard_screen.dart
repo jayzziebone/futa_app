@@ -8,6 +8,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../core/theme.dart';
 import '../../core/config.dart';
+import '../../core/widgets/skeleton_shimmer.dart';
 import './school_dashboard_mobile_layout.dart';
 import './school_dashboard_web_layout.dart';
 
@@ -540,10 +541,36 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator(color: FutaTheme.blueDark)),
+      final isWeb = MediaQuery.of(context).size.width >= 900;
+      return Scaffold(
+        backgroundColor: FutaTheme.backgroundLight,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          title: const SkeletonBox(width: 160, height: 20),
+          actions: const [
+            Padding(
+              padding: EdgeInsets.only(right: 16.0),
+              child: SkeletonBox(width: 120, height: 36, borderRadius: 18),
+            ),
+          ],
+        ),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SkeletonDashboardMetrics(count: 4, isWeb: isWeb),
+              const SizedBox(height: 28),
+              const SkeletonBox(width: 180, height: 20),
+              const SizedBox(height: 14),
+              const SkeletonTableRows(rowCount: 6),
+            ],
+          ),
+        ),
       );
     }
+
 
     if (_errorMessage != null) {
       return Scaffold(

@@ -9,6 +9,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../core/theme.dart';
 import '../../core/config.dart';
+import '../../core/widgets/skeleton_shimmer.dart';
 import 'widgets/credit_score_gauge.dart';
 
 class ParentDashboardScreen extends StatefulWidget {
@@ -21,6 +22,7 @@ class ParentDashboardScreen extends StatefulWidget {
 class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   int _currentIndex = 0;
   bool _isLoading = true;
+  final Set<String> _payingInstallmentIds = {};
   String? _errorMessage;
 
   // Local states
@@ -442,10 +444,19 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
 
     if (remaining <= 0) return;
 
-    // Direct text entry modal for custom amount or direct paying full remaining
-    double payAmount = remaining;
+    final instId = installment['id'].toString();
+    final prevAmountPaid = amountPaid;
+    final prevStatus = installment['status'];
+    final prevScore = _futaScore;
 
-    setState(() => _isLoading = true);
+    // Optimistic Update: Immediately reflect payment in the local UI
+    setState(() {
+      _payingInstallmentIds.add(instId);
+      installment['amount_paid'] = amountDue;
+      installment['status'] = 'PAID';
+      installment['paid_at'] = DateTime.now().toIso8601String();
+      _futaScore = (_futaScore + 25).clamp(300, 850);
+    });
 
     try {
       final token = await FirebaseAuth.instance.currentUser?.getIdToken();
@@ -455,164 +466,71 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
           'installment_id': installment['id'],
           'phone_number':
               _profile?['phone_number']?.replaceAll(' ', '') ?? '+243812345678',
-          'amount': payAmount,
+          'amount': remaining,
         },
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
-      if (response.data['status'] == 'success') {
-        // Show success alert in French
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text(
-              'Paiement Réussi',
-              style: TextStyle(
-                color: FutaTheme.blueDark,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            content: Text(
-              'Votre paiement de ${NumberFormat.decimalPattern('fr').format(payAmount)} ${installment['currency'] == 'FCFA' ? 'FC' : (installment['currency'] ?? 'FC')} a été traité via M-Pesa.\n\nNouveau Score de Crédit FUTA: ${response.data['new_futa_score']}',
-              style: const TextStyle(fontSize: 14),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.of(ctx).pop();
-                  _loadData(); // Reload stats and scores
-                },
-                child: const Text(
-                  'Fermer',
-                  style: TextStyle(color: FutaTheme.emeraldGreen),
+      if (mounted) {
+        setState(() {
+          _payingInstallmentIds.remove(instId);
+          if (response.data['new_futa_score'] != null) {
+            _futaScore = (response.data['new_futa_score'] as num).toInt();
+          }
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Paiement M-Pesa de ${NumberFormat.decimalPattern('fr').format(remaining)} FC validé avec succès ! Nouveau Score FUTA : $_futaScore',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
+            backgroundColor: FutaTheme.emeraldGreen,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            duration: const Duration(seconds: 4),
           ),
         );
       }
     } catch (e) {
-      // Simulating payment fallback for standalone evaluation
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text(
-            'Simulation M-Pesa',
-            style: TextStyle(
-              color: FutaTheme.blueDark,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          content: Text(
-            'Lancement de la transaction de ${NumberFormat.decimalPattern('fr').format(payAmount)} ${installment['currency'] == 'FCFA' ? 'FC' : (installment['currency'] ?? 'FC')}.\nUne notification USSD va apparaître sur votre téléphone.',
-            style: const TextStyle(fontSize: 14),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(ctx).pop();
-                // Apply locally to allow testing the UI transitions
-                setState(() {
-                  installment['amount_paid'] = amountDue;
-                  installment['status'] = 'PAID';
-                  installment['paid_at'] = DateTime.now().toIso8601String();
-                  _futaScore = 810; // Upgrade score on payment success
-                });
+      debugPrint('M-Pesa payment API error: $e');
+      if (mounted) {
+        // Fallback simulation mode for local testing
+        setState(() {
+          _payingInstallmentIds.remove(instId);
+          _futaScore = (prevScore + 20).clamp(300, 850);
+        });
 
-                // Write back directly to Supabase to persist payment state
-                final instIdStr = installment['id']?.toString() ?? '';
-                final intId = int.tryParse(instIdStr);
-                if (intId != null) {
-                  Supabase.instance.client
-                      .from('contract_installments')
-                      .update({
-                        'paid_amount': amountDue,
-                        'status': 'PAID',
-                        'paid_at': DateTime.now().toIso8601String(),
-                      })
-                      .eq('id', intId)
-                      .then((_) async {
-                        final contractId = installment['contract_id'];
-                        if (contractId != null) {
-                          try {
-                            final allInstsRes = await Supabase.instance.client
-                                .from('contract_installments')
-                                .select('status')
-                                .eq('contract_id', contractId);
-                            final allPaid = allInstsRes.every(
-                              (inst) => inst['status'] == 'PAID',
-                            );
-                            if (allPaid) {
-                              await Supabase.instance.client
-                                  .from('contracts')
-                                  .update({'status': 'completed'})
-                                  .eq('id', contractId);
-                            }
-                          } catch (e) {
-                            debugPrint(
-                              'Failed to auto-complete merchant contract: $e',
-                            );
-                          }
-                        }
-                        _loadData();
-                      })
-                      .catchError((err) {
-                        debugPrint('Supabase update failed: $err');
-                        return null;
-                      });
-                } else if (instIdStr.isNotEmpty) {
-                  // Fallback for UUID string IDs if they are used
-                  Supabase.instance.client
-                      .from('school_installments')
-                      .update({
-                        'amount_paid': amountDue,
-                        'status': 'PAID',
-                        'paid_at': DateTime.now().toIso8601String(),
-                      })
-                      .eq('id', instIdStr)
-                      .then((_) async {
-                        final contractId = installment['contract_id'];
-                        if (contractId != null) {
-                          try {
-                            final allInstsRes = await Supabase.instance.client
-                                .from('school_installments')
-                                .select('status')
-                                .eq('contract_id', contractId);
-                            final allPaid = allInstsRes.every(
-                              (inst) => inst['status'] == 'PAID',
-                            );
-                            if (allPaid) {
-                              await Supabase.instance.client
-                                  .from('school_contracts')
-                                  .update({'status': 'completed'})
-                                  .eq('id', contractId);
-                            }
-                          } catch (e) {
-                            debugPrint(
-                              'Failed to auto-complete school contract: $e',
-                            );
-                          }
-                        }
-                        _loadData();
-                      })
-                      .catchError((err) {
-                        debugPrint('Supabase update failed: $err');
-                        return null;
-                      });
-                }
-              },
-              child: const Text(
-                'Confirmer le code PIN',
-                style: TextStyle(color: FutaTheme.emeraldGreen),
-              ),
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle_outline, color: Colors.white),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Simulation M-Pesa : Paiement de ${NumberFormat.decimalPattern('fr').format(remaining)} FC enregistré.',
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      );
-    } finally {
-      setState(() => _isLoading = false);
+            backgroundColor: FutaTheme.blueDark,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
     }
   }
+
 
   Future<void> _payAllRemainingDebt() async {
     final double totalDebt = _totalRemainingDebt;
@@ -792,12 +710,35 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(color: FutaTheme.emeraldGreen),
+      return Scaffold(
+        backgroundColor: FutaTheme.backgroundLight,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          title: const SkeletonBox(width: 140, height: 20),
+          actions: const [
+            Padding(
+              padding: EdgeInsets.only(right: 16.0),
+              child: SkeletonBox(width: 36, height: 36, borderRadius: 18),
+            ),
+          ],
+        ),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              SkeletonDashboardMetrics(count: 3),
+              SizedBox(height: 24),
+              SkeletonBox(width: 160, height: 18),
+              SizedBox(height: 12),
+              SkeletonInstallmentList(count: 3),
+            ],
+          ),
         ),
       );
     }
+
 
     if (_errorMessage != null) {
       return Scaffold(

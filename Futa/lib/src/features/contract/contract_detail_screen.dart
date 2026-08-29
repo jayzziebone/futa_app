@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:dio/dio.dart';
 import '../../core/theme.dart';
 import '../../core/config.dart';
+import '../../core/widgets/skeleton_shimmer.dart';
 
 class ContractDetailScreen extends StatefulWidget {
   final String contractId;
@@ -506,12 +507,29 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(color: FutaTheme.emeraldGreen),
+      return Scaffold(
+        backgroundColor: FutaTheme.backgroundLight,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          title: const SkeletonBox(width: 140, height: 20),
+        ),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              SkeletonDashboardMetrics(count: 2),
+              SizedBox(height: 24),
+              SkeletonBox(width: 160, height: 18),
+              SizedBox(height: 12),
+              SkeletonInstallmentList(count: 3),
+            ],
+          ),
         ),
       );
     }
+
 
     if (_errorMessage != null) {
       return Scaffold(

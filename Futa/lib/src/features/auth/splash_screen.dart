@@ -21,121 +21,52 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _checkAuth() async {
-    // Show splash logo for 2 seconds
-    await Future.delayed(const Duration(seconds: 2));
-
-    if (!mounted) return;
-
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      context.go('/login');
+      if (mounted) context.go('/login');
       return;
     }
 
     try {
-      // Restore authenticated Supabase session using the Firebase ID token directly
-      final idToken = await user.getIdToken();
-      if (idToken != null) {
-        Supabase.instance.client.rest.headers['Authorization'] = 'Bearer $idToken';
-        try {
-          Supabase.instance.client.storage.headers['Authorization'] = 'Bearer $idToken';
-        } catch (_) {}
+      // 1. Fast-path: Check cached role if available
+      final cachedRole = AuthTokenManager.cachedRole;
+      final cachedSubRole = AuthTokenManager.cachedSubRole;
+      if (cachedRole != null && mounted) {
+        _navigateByRole(cachedRole, cachedSubRole ?? 'parent');
+        return;
       }
 
-      var response = await Supabase.instance.client
-          .from('profiles')
-          .select()
-          .eq('id', user.uid)
-          .maybeSingle();
-
-      String role = 'client';
-      String subRole = 'parent';
-
-      if (response != null) {
-        role = response['role'] ?? 'client';
-        subRole = response['sub_role'] ?? 'parent';
-      } else {
-        // Check school_admins mapping table first by user_id or phone_number
-        final userPhone = user.phoneNumber ?? '';
-        final cleanPhone = userPhone.replaceAll(' ', '');
-
-        var schoolAdmin = await Supabase.instance.client
-            .from('school_admins')
-            .select()
-            .eq('user_id', user.uid)
-            .maybeSingle();
-
-        if (schoolAdmin == null && cleanPhone.isNotEmpty) {
-          schoolAdmin = await Supabase.instance.client
-              .from('school_admins')
-              .select()
-              .eq('phone_number', cleanPhone)
-              .maybeSingle();
-
-          if (schoolAdmin != null) {
-            // Auto-claim pending invite for this user
-            try {
-              await Supabase.instance.client
-                  .from('school_admins')
-                  .update({'user_id': user.uid, 'status': 'ACTIVE'})
-                  .eq('id', schoolAdmin['id']);
-            } catch (e) {
-              debugPrint('Error claiming school admin invite: $e');
-            }
-          }
-        }
-
-        if (schoolAdmin != null) {
-          role = 'admin';
-          subRole = 'school';
-          response = schoolAdmin;
-        } else {
-          // Check school profiles
-          final schoolProfile = await Supabase.instance.client
-              .from('school_profiles')
-              .select()
-              .eq('id', user.uid)
-              .maybeSingle();
-          if (schoolProfile != null) {
-            role = 'admin';
-            subRole = 'school';
-            response = schoolProfile;
-          } else {
-            // Check merchant profiles
-            final merchantProfile = await Supabase.instance.client
-                .from('merchant_profiles')
-                .select()
-                .eq('id', user.uid)
-                .maybeSingle();
-            if (merchantProfile != null) {
-              role = 'admin';
-              subRole = 'merchant';
-              response = merchantProfile;
-            }
-          }
-        }
-      }
-
-
+      // 2. Fetch session and role via token exchange in a single call
+      final session = await AuthTokenManager.getSessionInfo();
       if (!mounted) return;
 
-      if (response != null) {
-        if (subRole == 'merchant') {
-          context.go('/merchant');
-        } else if (role == 'admin' || subRole == 'school') {
-          context.go('/school');
-        } else {
-          context.go('/parent');
-        }
+      if (session != null) {
+        // Set Supabase headers
+        Supabase.instance.client.rest.headers['Authorization'] = 'Bearer ${session.supabaseToken}';
+        try {
+          Supabase.instance.client.storage.headers['Authorization'] = 'Bearer ${session.supabaseToken}';
+        } catch (_) {}
+
+        _navigateByRole(session.role, session.subRole);
       } else {
-        context.go('/register');
-      }
-    } catch (e) {
-      if (mounted) {
         context.go('/login');
       }
+    } catch (e) {
+      debugPrint('FUTA Splash Auth check failed: $e');
+      if (mounted) context.go('/login');
     }
   }
+
+  void _navigateByRole(String role, String subRole) {
+    if (subRole == 'merchant') {
+      context.go('/merchant');
+    } else if (role == 'admin' || subRole == 'school') {
+      context.go('/school');
+    } else {
+      context.go('/parent');
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {

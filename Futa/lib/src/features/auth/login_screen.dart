@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:country_code_picker/country_code_picker.dart';
 import '../../core/theme.dart';
+import '../../core/auth_token_manager.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -155,126 +156,105 @@ class _LoginScreenState extends State<LoginScreen>
 
   Future<void> _handlePostLogin(String uid) async {
     try {
-      debugPrint('FUTA Auth: Starting post-login for Firebase UID: $uid');
+      debugPrint('FUTA Auth: Starting fast post-login for Firebase UID: $uid');
+      
+      // 1. Single-roundtrip token exchange & role resolution
+      final session = await AuthTokenManager.getSessionInfo(forceRefresh: true);
+      if (session != null) {
+        Supabase.instance.client.rest.headers['Authorization'] = 'Bearer ${session.supabaseToken}';
+        try {
+          Supabase.instance.client.storage.headers['Authorization'] = 'Bearer ${session.supabaseToken}';
+        } catch (_) {}
+
+        if (!mounted) return;
+        _navigateByRole(session.role, session.subRole);
+        return;
+      }
+
+      // 2. Parallel fallback if backend token-exchange is temporarily unreachable
       final firebaseUser = FirebaseAuth.instance.currentUser;
       if (firebaseUser != null) {
         final idToken = await firebaseUser.getIdToken();
         if (idToken != null) {
-          debugPrint(
-            'FUTA Auth: Setting Supabase headers using Firebase ID token...',
-          );
-          Supabase.instance.client.rest.headers['Authorization'] =
-              'Bearer $idToken';
-          try {
-            Supabase.instance.client.storage.headers['Authorization'] =
-                'Bearer $idToken';
-          } catch (_) {}
+          Supabase.instance.client.rest.headers['Authorization'] = 'Bearer $idToken';
         }
       }
 
-      debugPrint('FUTA Auth: Querying Supabase profiles for id: $uid');
-      var response = await Supabase.instance.client
-          .from('profiles')
-          .select()
-          .eq('id', uid)
-          .maybeSingle();
+      final userPhone = FirebaseAuth.instance.currentUser?.phoneNumber ?? _phoneController.text.trim();
+      final cleanPhone = userPhone.replaceAll(' ', '');
+
+      final results = await Future.wait([
+        Supabase.instance.client.from('profiles').select().eq('id', uid).maybeSingle(),
+        Supabase.instance.client.from('school_admins').select().eq('user_id', uid).maybeSingle(),
+        if (cleanPhone.isNotEmpty)
+          Supabase.instance.client.from('school_admins').select().eq('phone_number', cleanPhone).maybeSingle()
+        else
+          Future.value(null),
+        Supabase.instance.client.from('school_profiles').select().eq('id', uid).maybeSingle(),
+        Supabase.instance.client.from('merchant_profiles').select().eq('id', uid).maybeSingle(),
+      ]);
+
+      final profileRes = results[0];
+      final adminByIdRes = results[1];
+      final adminByPhoneRes = results[2];
+      final schoolRes = results[3];
+      final merchantRes = results[4];
 
       String role = 'client';
       String subRole = 'parent';
+      bool profileFound = false;
 
-      if (response != null) {
-        role = response['role'] ?? 'client';
-        subRole = response['sub_role'] ?? 'parent';
-      } else {
-        // Check school_admins mapping table first by user_id or phone_number
-        final userPhone = FirebaseAuth.instance.currentUser?.phoneNumber ?? _phoneController.text.trim();
-        final cleanPhone = userPhone.replaceAll(' ', '');
-
-
-        var schoolAdmin = await Supabase.instance.client
-            .from('school_admins')
-            .select()
-            .eq('user_id', uid)
-            .maybeSingle();
-
-        if (schoolAdmin == null && cleanPhone.isNotEmpty) {
-          schoolAdmin = await Supabase.instance.client
+      if (profileRes != null) {
+        role = profileRes['role'] ?? 'client';
+        subRole = profileRes['sub_role'] ?? 'parent';
+        profileFound = true;
+      } else if (adminByIdRes != null) {
+        role = 'admin';
+        subRole = 'school';
+        profileFound = true;
+      } else if (adminByPhoneRes != null) {
+        role = 'admin';
+        subRole = 'school';
+        profileFound = true;
+        try {
+          await Supabase.instance.client
               .from('school_admins')
-              .select()
-              .eq('phone_number', cleanPhone)
-              .maybeSingle();
-
-          if (schoolAdmin != null) {
-            // Auto-claim pending invite for this user
-            try {
-              await Supabase.instance.client
-                  .from('school_admins')
-                  .update({'user_id': uid, 'status': 'ACTIVE'})
-                  .eq('id', schoolAdmin['id']);
-            } catch (e) {
-              debugPrint('Error claiming school admin invite: $e');
-            }
-          }
-        }
-
-        if (schoolAdmin != null) {
-          role = 'admin';
-          subRole = 'school';
-          response = schoolAdmin;
-        } else {
-          // Check school profiles
-          final schoolProfile = await Supabase.instance.client
-              .from('school_profiles')
-              .select()
-              .eq('id', uid)
-              .maybeSingle();
-          if (schoolProfile != null) {
-            role = 'admin';
-            subRole = 'school';
-            response = schoolProfile;
-          } else {
-            // Check merchant profiles
-            final merchantProfile = await Supabase.instance.client
-                .from('merchant_profiles')
-                .select()
-                .eq('id', uid)
-                .maybeSingle();
-            if (merchantProfile != null) {
-              role = 'admin';
-              subRole = 'merchant';
-              response = merchantProfile;
-            }
-          }
-        }
+              .update({'user_id': uid, 'status': 'ACTIVE'})
+              .eq('id', adminByPhoneRes['id']);
+        } catch (_) {}
+      } else if (schoolRes != null) {
+        role = 'admin';
+        subRole = 'school';
+        profileFound = true;
+      } else if (merchantRes != null) {
+        role = 'admin';
+        subRole = 'merchant';
+        profileFound = true;
       }
-
-      debugPrint('FUTA Auth: Supabase profile query response: $response');
-
 
       if (!mounted) return;
 
-      if (response != null) {
-        debugPrint(
-          'FUTA Auth: Routing user based on role: $role, subRole: $subRole',
-        );
-
-        if (subRole == 'merchant') {
-          context.go('/merchant');
-        } else if (role == 'admin' || subRole == 'school') {
-          context.go('/school');
-        } else {
-          context.go('/parent');
-        }
+      if (profileFound) {
+        AuthTokenManager.cacheRole(role, subRole, uid: uid);
+        _navigateByRole(role, subRole);
       } else {
-        debugPrint('FUTA Auth: Profile not found. Routing to /register');
         context.go('/register');
       }
-    } catch (e, stack) {
-      debugPrint('FUTA Auth ERROR: Exception in post-login token exchange: $e');
-      debugPrint('FUTA Auth ERROR Stack: $stack');
+    } catch (e) {
+      debugPrint('FUTA Auth: Error in _handlePostLogin: $e');
       if (mounted) {
-        context.go('/parent');
+        context.go('/register');
       }
+    }
+  }
+
+  void _navigateByRole(String role, String subRole) {
+    if (subRole == 'merchant') {
+      context.go('/merchant');
+    } else if (role == 'admin' || subRole == 'school') {
+      context.go('/school');
+    } else {
+      context.go('/parent');
     }
   }
 
