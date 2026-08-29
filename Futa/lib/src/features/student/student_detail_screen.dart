@@ -6,6 +6,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:dio/dio.dart' as dio;
 import '../../core/theme.dart';
 import '../../core/config.dart';
+import '../../core/widgets/skeleton_shimmer.dart';
+import '../../core/auth_token_manager.dart';
 
 class StudentDetailScreen extends StatefulWidget {
   final String studentId;
@@ -75,10 +77,11 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
   Future<void> _loadStudentDetails() async {
     setState(() => _isLoading = true);
     try {
+      await AuthTokenManager.applySupabaseHeaders();
       final supabase = Supabase.instance.client;
 
-      // 1. Fetch student and parent info
-      final studentRes = await supabase
+      // Run student query and installments query in parallel
+      final studentFuture = supabase
           .from('students')
           .select(
             '*, parent:profiles!students_parent_id_fkey(id, first_name, last_name, phone_number, address)',
@@ -86,26 +89,33 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
           .eq('id', widget.studentId)
           .single();
 
-      final String? schoolId = studentRes['school_id'];
-      String tempSchoolName = 'FUTA';
-      if (schoolId != null) {
-        final schoolRes = await supabase
-            .from('school_profiles')
-            .select('school_name')
-            .eq('id', schoolId)
-            .maybeSingle();
-        if (schoolRes != null) {
-          tempSchoolName = schoolRes['school_name'] ?? 'FUTA';
-        }
-      }
-
-      // 2. Fetch installments
-      final installmentsRes = await supabase
+      final installmentsFuture = supabase
           .from('school_installments')
           .select('*')
           .eq('student_id', widget.studentId);
 
+      final results = await Future.wait<dynamic>([studentFuture, installmentsFuture]);
+
+      final studentRes = results[0] as Map<String, dynamic>;
+      final installmentsRes = results[1] as List<dynamic>;
+
+      final String? schoolId = studentRes['school_id'];
+      String tempSchoolName = 'FUTA';
+      if (schoolId != null) {
+        try {
+          final schoolRes = await supabase
+              .from('school_profiles')
+              .select('school_name')
+              .eq('id', schoolId)
+              .maybeSingle();
+          if (schoolRes != null) {
+            tempSchoolName = schoolRes['school_name'] ?? 'FUTA';
+          }
+        } catch (_) {}
+      }
+
       _installments = List<Map<String, dynamic>>.from(installmentsRes);
+
 
       double totalTuition = 0.0;
       double totalPaid = 0.0;
@@ -678,12 +688,9 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(color: FutaTheme.emeraldGreen),
-        ),
-      );
+      return const SkeletonStudentDetail();
     }
+
 
     final currencyFormat = NumberFormat.decimalPattern('fr');
     final double total = _studentData['total_tuition'];

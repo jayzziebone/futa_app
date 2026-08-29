@@ -6,6 +6,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
+import '../../core/widgets/skeleton_shimmer.dart';
+import '../../core/auth_token_manager.dart';
 
 class MerchantDashboardScreen extends StatefulWidget {
   const MerchantDashboardScreen({super.key});
@@ -105,12 +107,15 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
       }
       final userId = user.uid;
 
+      await AuthTokenManager.applySupabaseHeaders();
+
       // Fetch profile details from merchant_profiles
       final profileRes = await Supabase.instance.client
           .from('merchant_profiles')
           .select()
           .eq('id', userId)
           .maybeSingle();
+
 
       // 1. Look up merchant's integer ID from the users table
       final userRes = await Supabase.instance.client
@@ -397,12 +402,28 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(color: FutaTheme.emeraldGreen),
+      return Scaffold(
+        backgroundColor: FutaTheme.backgroundLight,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                SkeletonBox(width: 160, height: 28),
+                SizedBox(height: 6),
+                SkeletonBox(width: 220, height: 14),
+                SizedBox(height: 24),
+                SkeletonDashboardMetrics(count: 3),
+                SizedBox(height: 24),
+                SkeletonTableRows(rowCount: 4),
+              ],
+            ),
+          ),
         ),
       );
     }
+
 
     if (_errorMessage != null) {
       return Scaffold(

@@ -280,3 +280,161 @@ class SkeletonInstallmentList extends StatelessWidget {
     );
   }
 }
+
+/// Student Detail Screen Skeleton
+class SkeletonStudentDetail extends StatelessWidget {
+  const SkeletonStudentDetail({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: FutaTheme.backgroundLight,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: FutaShimmer(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // 1. HERO HEADER CARD SKELETON
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: const [
+                              SkeletonBox(width: 40, height: 40, borderRadius: 12),
+                              SkeletonBox(width: 90, height: 26, borderRadius: 13),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          const SkeletonBox(width: 76, height: 76, borderRadius: 38),
+                          const SizedBox(height: 14),
+                          const SkeletonBox(width: 180, height: 22),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: const [
+                              SkeletonBox(width: 70, height: 20, borderRadius: 6),
+                              SizedBox(width: 8),
+                              SkeletonBox(width: 90, height: 20, borderRadius: 6),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          const SkeletonBox(width: double.infinity, height: 48, borderRadius: 14),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // 2. FINANCIAL STATS CARD SKELETON
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: const [
+                              SkeletonBox(width: 120, height: 16),
+                              SkeletonBox(width: 80, height: 24, borderRadius: 8),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: const [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    SkeletonBox(width: 60, height: 12),
+                                    SizedBox(height: 6),
+                                    SkeletonBox(width: 100, height: 20),
+                                  ],
+                                ),
+                              ),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    SkeletonBox(width: 60, height: 12),
+                                    SizedBox(height: 6),
+                                    SkeletonBox(width: 100, height: 20),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          const SkeletonBox(width: double.infinity, height: 10, borderRadius: 5),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // 3. ECHEANCIER / INSTALLMENTS SKELETON
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SkeletonBox(width: 140, height: 18),
+                          const SizedBox(height: 16),
+                          ...List.generate(
+                            3,
+                            (index) => Container(
+                              margin: const EdgeInsets.only(bottom: 10),
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFFF1F5F9)),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: const [
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      SkeletonBox(width: 100, height: 14),
+                                      SizedBox(height: 6),
+                                      SkeletonBox(width: 70, height: 11),
+                                    ],
+                                  ),
+                                  SkeletonBox(width: 80, height: 28, borderRadius: 8),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+

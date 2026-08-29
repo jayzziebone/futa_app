@@ -3,6 +3,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import '../../core/theme.dart';
+import '../../core/widgets/skeleton_shimmer.dart';
+import '../../core/auth_token_manager.dart';
 
 class ArchivePaymentsScreen extends StatefulWidget {
   const ArchivePaymentsScreen({super.key});
@@ -102,12 +104,15 @@ class _ArchivePaymentsScreenState extends State<ArchivePaymentsScreen> {
       }
       final userId = user.uid;
 
+      await AuthTokenManager.applySupabaseHeaders();
+
       // 1. Fetch Profile to get phone number and role
       final profileRes = await Supabase.instance.client
           .from('profiles')
           .select()
           .eq('id', userId)
           .maybeSingle();
+
 
       if (profileRes == null) {
         throw Exception("Profil introuvable pour cet utilisateur.");
@@ -349,8 +354,12 @@ class _ArchivePaymentsScreenState extends State<ArchivePaymentsScreen> {
         centerTitle: true,
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: FutaTheme.emeraldGreen))
+          ? const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: SkeletonInstallmentList(count: 5),
+            )
           : _errorMessage != null
+
               ? Center(
                   child: Padding(
                     padding: const EdgeInsets.all(24.0),
