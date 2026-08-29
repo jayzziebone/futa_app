@@ -19,6 +19,7 @@ class SchoolDashboardMobileLayout extends StatelessWidget {
   final int totalParentsCount;
   final int totalTeachersCount;
   final double totalAmountCollected;
+  final double totalAmountToPerceive;
   final double recoveryRate;
 
   final TextEditingController searchController;
@@ -27,6 +28,19 @@ class SchoolDashboardMobileLayout extends StatelessWidget {
   final Future<void> Function() onRefresh;
   final VoidCallback onUploadRoster;
   final VoidCallback onApplyCashAdjustment;
+  final Function({
+    required String parentId,
+    required String firstName,
+    required String lastName,
+    required String phoneNumber,
+    String? address,
+  }) onUpdateParent;
+  final Function({
+    String? studentId,
+    required String tranche1Date,
+    required String tranche2Date,
+    required String tranche3Date,
+  }) onUpdateInstallmentDates;
   final VoidCallback onLogout;
   final ValueChanged<int> onTabChanged;
   final ValueChanged<Map<String, dynamic>?> onSelectedStudentChanged;
@@ -48,18 +62,22 @@ class SchoolDashboardMobileLayout extends StatelessWidget {
     required this.totalParentsCount,
     required this.totalTeachersCount,
     required this.totalAmountCollected,
+    required this.totalAmountToPerceive,
     required this.recoveryRate,
     required this.searchController,
     required this.cashAmountController,
     required this.onRefresh,
     required this.onUploadRoster,
     required this.onApplyCashAdjustment,
+    required this.onUpdateParent,
+    required this.onUpdateInstallmentDates,
     required this.onLogout,
     required this.onTabChanged,
     required this.onSelectedStudentChanged,
     required this.onSelectedPaymentFilterChanged,
     required this.onSelectedClassFilterChanged,
   });
+
 
   double _getAverageAttendance() {
     if (students.isEmpty) return 95.0;
@@ -132,6 +150,177 @@ class SchoolDashboardMobileLayout extends StatelessWidget {
     return values;
   }
 
+  void _showEditParentDialog(
+    BuildContext context, {
+    required String parentId,
+    required String currentFirstName,
+    required String currentLastName,
+    required String currentPhone,
+    required String currentAddress,
+  }) {
+    final firstNameController = TextEditingController(text: currentFirstName);
+    final lastNameController = TextEditingController(text: currentLastName);
+    final phoneController = TextEditingController(text: currentPhone);
+    final addressController = TextEditingController(text: currentAddress);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text(
+          'Modifier le profil parent',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: FutaTheme.blueDark),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: firstNameController,
+                decoration: const InputDecoration(labelText: 'Prénom du parent'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: lastNameController,
+                decoration: const InputDecoration(labelText: 'Nom du parent'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: phoneController,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                  labelText: 'Téléphone',
+                  hintText: '+243... ou 08...',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: addressController,
+                decoration: const InputDecoration(labelText: 'Adresse'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: FutaTheme.emeraldGreen),
+            onPressed: () {
+              if (firstNameController.text.trim().isEmpty || lastNameController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Veuillez remplir le prénom et le nom.')),
+                );
+                return;
+              }
+              onUpdateParent(
+                parentId: parentId,
+                firstName: firstNameController.text.trim(),
+                lastName: lastNameController.text.trim(),
+                phoneNumber: phoneController.text.trim(),
+                address: addressController.text.trim(),
+              );
+              Navigator.pop(ctx);
+            },
+            child: const Text('Enregistrer', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditInstallmentDatesDialog(
+    BuildContext context, {
+    String? studentId,
+  }) {
+    final now = DateTime.now();
+    DateTime t1 = now.add(const Duration(days: 30));
+    DateTime t2 = now.add(const Duration(days: 60));
+    DateTime t3 = now.add(const Duration(days: 90));
+
+    final DateFormat formatter = DateFormat('yyyy-MM-dd');
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            Future<void> pickDate(int trancheNum) async {
+              final initial = trancheNum == 1 ? t1 : (trancheNum == 2 ? t2 : t3);
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: initial,
+                firstDate: DateTime(2020),
+                lastDate: DateTime(2030),
+              );
+              if (picked != null) {
+                setDialogState(() {
+                  if (trancheNum == 1) t1 = picked;
+                  if (trancheNum == 2) t2 = picked;
+                  if (trancheNum == 3) t3 = picked;
+                });
+              }
+            }
+
+            return AlertDialog(
+              title: Text(
+                studentId != null
+                    ? 'Définir les Échéances (Élève)'
+                    : 'Définir les Échéances du Trimestre (Toute l\'école)',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: FutaTheme.blueDark),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(
+                    title: const Text('Tranche 1', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                    subtitle: Text(formatter.format(t1)),
+                    trailing: const Icon(Icons.calendar_today, size: 18, color: FutaTheme.blueDark),
+                    onTap: () => pickDate(1),
+                  ),
+                  const Divider(),
+                  ListTile(
+                    title: const Text('Tranche 2', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                    subtitle: Text(formatter.format(t2)),
+                    trailing: const Icon(Icons.calendar_today, size: 18, color: FutaTheme.blueDark),
+                    onTap: () => pickDate(2),
+                  ),
+                  const Divider(),
+                  ListTile(
+                    title: const Text('Tranche 3', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                    subtitle: Text(formatter.format(t3)),
+                    trailing: const Icon(Icons.calendar_today, size: 18, color: FutaTheme.blueDark),
+                    onTap: () => pickDate(3),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Annuler'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: FutaTheme.emeraldGreen),
+                  onPressed: () {
+                    onUpdateInstallmentDates(
+                      studentId: studentId,
+                      tranche1Date: formatter.format(t1),
+                      tranche2Date: formatter.format(t2),
+                      tranche3Date: formatter.format(t3),
+                    );
+                    Navigator.pop(ctx);
+                  },
+                  child: const Text('Enregistrer', style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -151,6 +340,11 @@ class SchoolDashboardMobileLayout extends StatelessWidget {
         centerTitle: true,
         actions: [
           IconButton(
+            tooltip: 'Échéances du Trimestre',
+            icon: const Icon(Icons.edit_calendar),
+            onPressed: () => _showEditInstallmentDatesDialog(context),
+          ),
+          IconButton(
             icon: const Icon(Icons.notifications_none),
             onPressed: () {},
           ),
@@ -160,6 +354,7 @@ class SchoolDashboardMobileLayout extends StatelessWidget {
       body: _buildMobileTabContent(context),
     );
   }
+
 
   Widget _buildMobileTabContent(BuildContext context) {
     switch (currentTab) {
@@ -289,7 +484,7 @@ class SchoolDashboardMobileLayout extends StatelessWidget {
         ),
         const SizedBox(height: 16),
 
-        // Presences Card matching Image 3
+        // Taux de Recouvrement Card
         Card(
           child: Padding(
             padding: const EdgeInsets.all(20.0),
@@ -297,7 +492,7 @@ class SchoolDashboardMobileLayout extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Présences',
+                  'Taux de Recouvrement',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
@@ -305,17 +500,22 @@ class SchoolDashboardMobileLayout extends StatelessWidget {
                   ),
                 ),
                 const Text(
-                  'Taux global ce mois',
+                  'Pourcentage perçu sur le montant total à percevoir',
                   style: TextStyle(color: FutaTheme.textLight, fontSize: 12),
                 ),
                 const SizedBox(height: 20),
                 Center(
-                  child: AttendanceRingChart(attendanceRate: averageAttendance),
+                  child: CollectionRingChart(
+                    recoveryRate: recoveryRate,
+                    totalAmountCollected: totalAmountCollected,
+                    totalAmountToPerceive: totalAmountToPerceive,
+                  ),
                 ),
               ],
             ),
           ),
         ),
+
         const SizedBox(height: 16),
 
         // Top Performances ranking matching Image 3
@@ -948,7 +1148,7 @@ class SchoolDashboardMobileLayout extends StatelessWidget {
               onPressed: () => onSelectedStudentChanged(null),
             ),
           ),
-          Expanded(child: _buildStudentDetailsContent(student)),
+          Expanded(child: _buildStudentDetailsContent(context, student)),
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: OutlinedButton(
@@ -1008,7 +1208,7 @@ class SchoolDashboardMobileLayout extends StatelessWidget {
                 ),
                 Flexible(
                   child: SingleChildScrollView(
-                    child: _buildStudentDetailsContent(student),
+                    child: _buildStudentDetailsContent(context, student),
                   ),
                 ),
                 Padding(
@@ -1043,7 +1243,8 @@ class SchoolDashboardMobileLayout extends StatelessWidget {
     );
   }
 
-  Widget _buildStudentDetailsContent(Map<String, dynamic> student) {
+  Widget _buildStudentDetailsContent(BuildContext context, Map<String, dynamic> student) {
+
     final currencyFormat = NumberFormat.decimalPattern('fr');
     final fullName = '${student['first_name']} ${student['last_name']}';
 
@@ -1126,6 +1327,72 @@ class SchoolDashboardMobileLayout extends StatelessWidget {
         const Divider(),
         const SizedBox(height: 8),
         const Text(
+          'INFORMATIONS PARENT',
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.2,
+            color: FutaTheme.textLight,
+          ),
+        ),
+        const SizedBox(height: 8),
+        _buildPanelStatRow(
+          Icons.person_outline,
+          'Parent',
+          '${student['profiles']?['first_name'] ?? ''} ${student['profiles']?['last_name'] ?? ''}'.trim().isNotEmpty 
+              ? '${student['profiles']?['first_name'] ?? ''} ${student['profiles']?['last_name'] ?? ''}'.trim()
+              : 'Non spécifié',
+        ),
+        const SizedBox(height: 8),
+        _buildPanelStatRow(
+          Icons.phone_outlined,
+          'Téléphone',
+          student['profiles']?['phone_number'] ?? 'Non spécifié',
+        ),
+        const SizedBox(height: 8),
+        _buildPanelStatRow(
+          Icons.location_on_outlined,
+          'Adresse',
+          student['profiles']?['address'] ?? 'Non spécifiée',
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.edit, size: 14),
+                label: const Text('Modifier Parent', style: TextStyle(fontSize: 11)),
+                onPressed: () {
+                  _showEditParentDialog(
+                    context,
+                    parentId: student['parent_id'] ?? '',
+                    currentFirstName: student['profiles']?['first_name'] ?? '',
+                    currentLastName: student['profiles']?['last_name'] ?? '',
+                    currentPhone: student['profiles']?['phone_number'] ?? '',
+                    currentAddress: student['profiles']?['address'] ?? '',
+                  );
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.edit_calendar, size: 14),
+                label: const Text('Échéances', style: TextStyle(fontSize: 11)),
+                onPressed: () {
+                  _showEditInstallmentDatesDialog(
+                    context,
+                    studentId: student['id'],
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        const Divider(),
+        const SizedBox(height: 8),
+        const Text(
           'STATUT DES PAIEMENTS',
           style: TextStyle(
             fontSize: 10,
@@ -1134,6 +1401,7 @@ class SchoolDashboardMobileLayout extends StatelessWidget {
             color: FutaTheme.textLight,
           ),
         ),
+
         const SizedBox(height: 12),
         _buildPanelStatRow(
           Icons.monetization_on_outlined,

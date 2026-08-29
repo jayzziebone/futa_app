@@ -203,6 +203,120 @@ class _RevenusTotauxBarChartState extends State<RevenusTotauxBarChart> {
   }
 }
 
+class CollectionRingChart extends StatelessWidget {
+  final double recoveryRate;
+  final double totalAmountCollected;
+  final double totalAmountToPerceive;
+
+  const CollectionRingChart({
+    super.key,
+    required this.recoveryRate,
+    required this.totalAmountCollected,
+    required this.totalAmountToPerceive,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final int displayRate = recoveryRate.isNaN ? 0 : recoveryRate.clamp(0, 100).round();
+    final double remaining = (totalAmountToPerceive - totalAmountCollected).clamp(0.0, double.infinity);
+
+    return Column(
+      children: [
+        SizedBox(
+          width: 140,
+          height: 140,
+          child: CustomPaint(
+            painter: RingChartPainter(
+              percentage: displayRate.toDouble(),
+              color: FutaTheme.emeraldGreen,
+              backgroundColor: const Color(0xFFE2E8F0),
+            ),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    '$displayRate%',
+                    style: const TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                      color: FutaTheme.blueDark,
+                    ),
+                  ),
+                  const Text(
+                    'Recouvrement',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: FutaTheme.textLight,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            Column(
+              children: [
+                Text(
+                  '${NumberFormat.compact(locale: 'fr').format(totalAmountCollected)} FC',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: FutaTheme.emeraldGreen,
+                  ),
+                ),
+                const Text(
+                  'Montant Perçu',
+                  style: TextStyle(fontSize: 10, color: FutaTheme.textLight),
+                ),
+              ],
+            ),
+            Container(width: 1.5, height: 24, color: Colors.grey.shade200),
+            Column(
+              children: [
+                Text(
+                  '${NumberFormat.compact(locale: 'fr').format(totalAmountToPerceive)} FC',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: FutaTheme.blueDark,
+                  ),
+                ),
+                const Text(
+                  'Total à Percevoir',
+                  style: TextStyle(fontSize: 10, color: FutaTheme.textLight),
+                ),
+              ],
+            ),
+            Container(width: 1.5, height: 24, color: Colors.grey.shade200),
+            Column(
+              children: [
+                Text(
+                  '${NumberFormat.compact(locale: 'fr').format(remaining)} FC',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFFD97706),
+                  ),
+                ),
+                const Text(
+                  'Solde Restant',
+                  style: TextStyle(fontSize: 10, color: FutaTheme.textLight),
+                ),
+              ],
+            ),
+          ],
+        )
+      ],
+    );
+  }
+}
+
 class AttendanceRingChart extends StatelessWidget {
   final double attendanceRate;
   const AttendanceRingChart({super.key, required this.attendanceRate});
@@ -261,6 +375,7 @@ class AttendanceRingChart extends StatelessWidget {
     );
   }
 }
+
 
 class RingChartPainter extends CustomPainter {
   final double percentage;

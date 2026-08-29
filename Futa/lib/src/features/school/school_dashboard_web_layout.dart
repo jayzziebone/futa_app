@@ -17,6 +17,7 @@ class SchoolDashboardWebLayout extends StatelessWidget {
   final int totalParentsCount;
   final int totalTeachersCount;
   final double totalAmountCollected;
+  final double totalAmountToPerceive;
   final double recoveryRate;
 
   final TextEditingController searchController;
@@ -24,6 +25,19 @@ class SchoolDashboardWebLayout extends StatelessWidget {
 
   final VoidCallback onUploadRoster;
   final VoidCallback onApplyCashAdjustment;
+  final Function({
+    required String parentId,
+    required String firstName,
+    required String lastName,
+    required String phoneNumber,
+    String? address,
+  }) onUpdateParent;
+  final Function({
+    String? studentId,
+    required String tranche1Date,
+    required String tranche2Date,
+    required String tranche3Date,
+  }) onUpdateInstallmentDates;
   final VoidCallback onLogout;
   final ValueChanged<int> onTabChanged;
   final ValueChanged<Map<String, dynamic>?> onSelectedStudentChanged;
@@ -45,17 +59,21 @@ class SchoolDashboardWebLayout extends StatelessWidget {
     required this.totalParentsCount,
     required this.totalTeachersCount,
     required this.totalAmountCollected,
+    required this.totalAmountToPerceive,
     required this.recoveryRate,
     required this.searchController,
     required this.cashAmountController,
     required this.onUploadRoster,
     required this.onApplyCashAdjustment,
+    required this.onUpdateParent,
+    required this.onUpdateInstallmentDates,
     required this.onLogout,
     required this.onTabChanged,
     required this.onSelectedStudentChanged,
     required this.onSelectedPaymentFilterChanged,
     required this.onSelectedClassFilterChanged,
   });
+
 
   List<String> _getPast6MonthsLabels() {
     final monthsFr = [
@@ -119,7 +137,8 @@ class SchoolDashboardWebLayout extends StatelessWidget {
           Expanded(
             child: Column(
               children: [
-                _buildWebTopHeader(),
+                _buildWebTopHeader(context),
+
                 Expanded(child: _buildWebTabContent(context)),
               ],
             ),
@@ -284,7 +303,182 @@ class SchoolDashboardWebLayout extends StatelessWidget {
     );
   }
 
-  Widget _buildWebTopHeader() {
+  void _showEditParentDialog(
+    BuildContext context, {
+    required String parentId,
+    required String currentFirstName,
+    required String currentLastName,
+    required String currentPhone,
+    required String currentAddress,
+  }) {
+    final firstNameController = TextEditingController(text: currentFirstName);
+    final lastNameController = TextEditingController(text: currentLastName);
+    final phoneController = TextEditingController(text: currentPhone);
+    final addressController = TextEditingController(text: currentAddress);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text(
+          'Modifier le profil parent',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: FutaTheme.blueDark),
+        ),
+        content: SizedBox(
+          width: 400,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: firstNameController,
+                decoration: const InputDecoration(labelText: 'Prénom du parent'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: lastNameController,
+                decoration: const InputDecoration(labelText: 'Nom du parent'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: phoneController,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                  labelText: 'Téléphone',
+                  hintText: '+243... ou 08...',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: addressController,
+                decoration: const InputDecoration(labelText: 'Adresse'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: FutaTheme.emeraldGreen),
+            onPressed: () {
+              if (firstNameController.text.trim().isEmpty || lastNameController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Veuillez remplir le prénom et le nom.')),
+                );
+                return;
+              }
+              onUpdateParent(
+                parentId: parentId,
+                firstName: firstNameController.text.trim(),
+                lastName: lastNameController.text.trim(),
+                phoneNumber: phoneController.text.trim(),
+                address: addressController.text.trim(),
+              );
+              Navigator.pop(ctx);
+            },
+            child: const Text('Enregistrer', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditInstallmentDatesDialog(
+    BuildContext context, {
+    String? studentId,
+  }) {
+    final now = DateTime.now();
+    DateTime t1 = now.add(const Duration(days: 30));
+    DateTime t2 = now.add(const Duration(days: 60));
+    DateTime t3 = now.add(const Duration(days: 90));
+
+    final DateFormat formatter = DateFormat('yyyy-MM-dd');
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            Future<void> pickDate(int trancheNum) async {
+              final initial = trancheNum == 1 ? t1 : (trancheNum == 2 ? t2 : t3);
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: initial,
+                firstDate: DateTime(2020),
+                lastDate: DateTime(2030),
+              );
+              if (picked != null) {
+                setDialogState(() {
+                  if (trancheNum == 1) t1 = picked;
+                  if (trancheNum == 2) t2 = picked;
+                  if (trancheNum == 3) t3 = picked;
+                });
+              }
+            }
+
+            return AlertDialog(
+              title: Text(
+                studentId != null
+                    ? 'Définir les Échéances (Élève)'
+                    : 'Définir les Échéances du Trimestre (Toute l\'école)',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: FutaTheme.blueDark),
+              ),
+              content: SizedBox(
+                width: 400,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ListTile(
+                      title: const Text('Tranche 1', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                      subtitle: Text(formatter.format(t1)),
+                      trailing: const Icon(Icons.calendar_today, size: 18, color: FutaTheme.blueDark),
+                      onTap: () => pickDate(1),
+                    ),
+                    const Divider(),
+                    ListTile(
+                      title: const Text('Tranche 2', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                      subtitle: Text(formatter.format(t2)),
+                      trailing: const Icon(Icons.calendar_today, size: 18, color: FutaTheme.blueDark),
+                      onTap: () => pickDate(2),
+                    ),
+                    const Divider(),
+                    ListTile(
+                      title: const Text('Tranche 3', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                      subtitle: Text(formatter.format(t3)),
+                      trailing: const Icon(Icons.calendar_today, size: 18, color: FutaTheme.blueDark),
+                      onTap: () => pickDate(3),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Annuler'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: FutaTheme.emeraldGreen),
+                  onPressed: () {
+                    onUpdateInstallmentDates(
+                      studentId: studentId,
+                      tranche1Date: formatter.format(t1),
+                      tranche2Date: formatter.format(t2),
+                      tranche3Date: formatter.format(t3),
+                    );
+                    Navigator.pop(ctx);
+                  },
+                  child: const Text('Enregistrer', style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildWebTopHeader(BuildContext context) {
     return Container(
       height: 70,
       color: Colors.white,
@@ -292,26 +486,16 @@ class SchoolDashboardWebLayout extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          // Search box
-          // SizedBox(
-          //   width: 320,
-          //   height: 40,
-          //   child: TextField(
-          //     decoration: InputDecoration(
-          //       prefixIcon: const Icon(Icons.search, size: 18, color: FutaTheme.textLight),
-          //       hintText: 'Rechercher des élèves, enseignants, documents...',
-          //       hintStyle: const TextStyle(fontSize: 13, color: FutaTheme.textLight),
-          //       contentPadding: const EdgeInsets.symmetric(vertical: 0),
-          //       filled: true,
-          //       fillColor: const Color(0xFFF8FAFC),
-          //       border: OutlineInputBorder(
-          //         borderRadius: BorderRadius.circular(8),
-          //         borderSide: BorderSide.none,
-          //       ),
-          //     ),
-          //   ),
-          // ),
-
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: FutaTheme.blueDark,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.edit_calendar, size: 16, color: Colors.white),
+            label: const Text('Échéances du Trimestre', style: TextStyle(color: Colors.white, fontSize: 12)),
+            onPressed: () => _showEditInstallmentDatesDialog(context),
+          ),
+          const SizedBox(width: 16),
           // User Profile row
           Row(
             children: [
@@ -323,6 +507,7 @@ class SchoolDashboardWebLayout extends StatelessWidget {
                 onPressed: () {},
               ),
               const SizedBox(width: 16),
+
               const Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -357,27 +542,41 @@ class SchoolDashboardWebLayout extends StatelessWidget {
   Widget _buildWebTabContent(BuildContext context) {
     switch (currentTab) {
       case 0:
-        return _buildWebDashboardTab();
+        return _buildWebDashboardTab(context);
       case 1:
         return _buildWebStudentsTab(context);
       case 2:
         return _buildWebPaymentsTab();
       default:
-        return _buildWebDashboardTab();
+        return _buildWebDashboardTab(context);
     }
   }
 
-  Widget _buildWebDashboardTab() {
+  Widget _buildWebDashboardTab(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.all(24.0),
       children: [
-        const Text(
-          'Tableau de bord',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: FutaTheme.textDark,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Tableau de bord',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: FutaTheme.textDark,
+              ),
+            ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: FutaTheme.emeraldGreen,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              icon: const Icon(Icons.edit_calendar, size: 16, color: Colors.white),
+              label: const Text('Échéances du Trimestre', style: TextStyle(color: Colors.white, fontSize: 12)),
+              onPressed: () => _showEditInstallmentDatesDialog(context),
+            ),
+          ],
         ),
         const SizedBox(height: 20),
 
@@ -506,7 +705,7 @@ class SchoolDashboardWebLayout extends StatelessWidget {
             ),
             const SizedBox(width: 24),
 
-            // Right calendar
+            // Right Taux de Recouvrement card
             Expanded(
               child: Card(
                 child: Padding(
@@ -514,53 +713,33 @@ class SchoolDashboardWebLayout extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Events Calendar',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: FutaTheme.textDark,
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.more_horiz,
-                              color: FutaTheme.textLight,
-                            ),
-                            onPressed: () {},
-                          ),
-                        ],
+                      const Text(
+                        'Taux de Recouvrement',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: FutaTheme.textDark,
+                        ),
+                      ),
+                      const Text(
+                        'Pourcentage perçu sur le montant total à percevoir',
+                        style: TextStyle(fontSize: 12, color: FutaTheme.textLight),
                       ),
                       const SizedBox(height: 20),
-                      _buildEventItem('08 Jan, 2023', 'School Annual Function'),
-                      _buildEventItem('27 Jan, 2023', 'Sport Competition'),
-                      const SizedBox(height: 20),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF8FAFC),
-                          borderRadius: BorderRadius.circular(10),
+                      Center(
+                        child: CollectionRingChart(
+                          recoveryRate: recoveryRate,
+                          totalAmountCollected: totalAmountCollected,
+                          totalAmountToPerceive: totalAmountToPerceive,
                         ),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'January 2023',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                                color: FutaTheme.textDark,
-                              ),
-                            ),
-                            Icon(
-                              Icons.keyboard_arrow_right,
-                              color: FutaTheme.textLight,
-                            ),
-                          ],
+                      ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.edit_calendar, size: 14),
+                          label: const Text('Définir les Échéances du Trimestre', style: TextStyle(fontSize: 12)),
+                          onPressed: () => _showEditInstallmentDatesDialog(context),
                         ),
                       ),
                     ],
@@ -570,6 +749,7 @@ class SchoolDashboardWebLayout extends StatelessWidget {
             ),
           ],
         ),
+
 
         // Roster upload prompt if empty
         if (students.isEmpty) ...[
@@ -734,7 +914,7 @@ class SchoolDashboardWebLayout extends StatelessWidget {
 
         // Right Column: Student detailed view (Trisha Berge prototype mockup)
         if (selectedStudent != null)
-          _buildWebStudentDetailPanel()
+          _buildWebStudentDetailPanel(context)
         else
           Container(
             width: 480,
@@ -746,6 +926,7 @@ class SchoolDashboardWebLayout extends StatelessWidget {
       ],
     );
   }
+
 
   Widget _buildFiltersCard() {
     return Card(
@@ -1063,14 +1244,16 @@ class SchoolDashboardWebLayout extends StatelessWidget {
     );
   }
 
-  Widget _buildWebStudentDetailPanel() {
+  Widget _buildWebStudentDetailPanel(BuildContext context) {
+
     final student = selectedStudent!;
     final fullName = '${student['first_name']} ${student['last_name']}';
     final parentProfile = student['profiles'] as Map<String, dynamic>?;
-    final parentPhone = parentProfile?['phone_number'] ?? '+243 000 000 000';
+    final parentPhone = parentProfile?['phone_number'] ?? '';
     final parentName = parentProfile != null
-        ? '${parentProfile['first_name']} ${parentProfile['last_name']}'
-        : 'Richard Berge';
+        ? '${parentProfile['first_name'] ?? ''} ${parentProfile['last_name'] ?? ''}'.trim()
+        : '';
+
 
     final currencyFormat = NumberFormat.decimalPattern('fr');
 
@@ -1183,34 +1366,113 @@ class SchoolDashboardWebLayout extends StatelessWidget {
                         color: FutaTheme.textDark,
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.more_horiz),
-                      onPressed: () {},
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.edit_calendar, size: 14),
+                      label: const Text('Échéances Élève', style: TextStyle(fontSize: 11)),
+                      onPressed: () {
+                        _showEditInstallmentDatesDialog(
+                          context,
+                          studentId: student['id'],
+                        );
+                      },
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
 
-                // Details Grid
-                Wrap(
-                  spacing: 24,
-                  runSpacing: 16,
-                  children: [
-                    _buildDetailGridItem('Genre', 'Féminin'),
-                    _buildDetailGridItem('Date de naissance', '29-04-2004'),
-                    _buildDetailGridItem(
-                      'Adresse',
-                      '1962 Harrison Street San Francisco, CA 94103',
-                    ),
-                    _buildDetailGridItem('Père', '$parentName ($parentPhone)'),
-                    _buildDetailGridItem(
-                      'Mère',
-                      'Maren Berge (+1606-687-7027)',
-                    ),
-                  ],
+                // PROFIL DU PARENT CARD
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'PROFIL DU PARENT',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.2,
+                              color: FutaTheme.blueDark,
+                            ),
+                          ),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: FutaTheme.emeraldGreen,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                            ),
+                            icon: const Icon(Icons.edit, size: 14, color: Colors.white),
+                            label: const Text('Modifier Parent', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                            onPressed: () {
+                              _showEditParentDialog(
+                                context,
+                                parentId: student['parent_id'] ?? '',
+                                currentFirstName: parentProfile?['first_name'] ?? '',
+                                currentLastName: parentProfile?['last_name'] ?? '',
+                                currentPhone: parentProfile?['phone_number'] ?? '',
+                                currentAddress: parentProfile?['address'] ?? '',
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          const Icon(Icons.person_outline, size: 16, color: FutaTheme.textLight),
+                          const SizedBox(width: 8),
+                          const Text('Nom: ', style: TextStyle(color: FutaTheme.textLight, fontSize: 13)),
+                          Expanded(
+                            child: Text(
+                              parentName.isNotEmpty ? parentName : 'Non spécifié',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: FutaTheme.textDark),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Icon(Icons.phone_outlined, size: 16, color: FutaTheme.textLight),
+                          const SizedBox(width: 8),
+                          const Text('Téléphone: ', style: TextStyle(color: FutaTheme.textLight, fontSize: 13)),
+                          Expanded(
+                            child: Text(
+                              parentPhone.isNotEmpty ? parentPhone : 'Non spécifié',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: FutaTheme.textDark),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Icon(Icons.location_on_outlined, size: 16, color: FutaTheme.textLight),
+                          const SizedBox(width: 8),
+                          const Text('Adresse: ', style: TextStyle(color: FutaTheme.textLight, fontSize: 13)),
+                          Expanded(
+                            child: Text(
+                              parentProfile?['address'] ?? 'Non spécifiée',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: FutaTheme.textDark),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 24),
                 const Divider(),
+
+
 
                 // Statut des Paiements
                 const Text(

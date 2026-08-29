@@ -126,16 +126,15 @@ def verify_firebase_token(token: str) -> dict:
                             decoded_token["role"] = "admin"
                             decoded_token["sub_role"] = "school"
                             decoded_token["school_id"] = school_res.data[0].get("id")
-
-                    else:
-                        # 3. Check merchant_profiles (merchant admin)
-                        merchant_res = supabase_client.table("merchant_profiles").select("id").eq("id", uid).execute()
-                        if merchant_res.data:
-                            decoded_token["role"] = "admin"
-                            decoded_token["sub_role"] = "merchant"
                         else:
-                            decoded_token["role"] = "client"
-                            decoded_token["sub_role"] = "parent"
+                            # 3. Check merchant_profiles (merchant admin)
+                            merchant_res = supabase_client.table("merchant_profiles").select("id").eq("id", uid).execute()
+                            if merchant_res.data:
+                                decoded_token["role"] = "admin"
+                                decoded_token["sub_role"] = "merchant"
+                            else:
+                                decoded_token["role"] = "client"
+                                decoded_token["sub_role"] = "parent"
             except Exception as e:
                 decoded_token["role"] = "client"
                 decoded_token["sub_role"] = "parent"

@@ -8,40 +8,45 @@ from app.core.supabase import supabase_client
 
 def clean_phone_number(phone_str: Any) -> str:
     """
-    Cleans and normalizes phone numbers to DRC (+243) format.
-    E.g. 0812345678 -> +243812345678
-         812345678 -> +243812345678
-         +243 812 345 678 -> +243812345678
+    Cleans and normalizes phone numbers.
+    If a number starts with '+', existing international prefix is preserved (e.g. +1..., +33...).
+    If no '+' is present, normalizes to DRC (+243) format (e.g. 0812345678 -> +243812345678).
     """
     if not phone_str:
         raise ValueError("Le numéro de téléphone est obligatoire.")
         
     phone = str(phone_str).strip()
-    # Remove all non-digits except +
+    # Remove all spaces, dashes, or non-digits except leading +
     phone = re.sub(r"[^\d+]", "", phone)
     
-    if phone.startswith("+243"):
-        return phone
-    if phone.startswith("00243"):
+    # 1. If it already starts with '+', keep international prefix as is
+    if phone.startswith("+"):
+        if len(phone) >= 8:
+            return phone
+        raise ValueError(f"Numéro international trop court: {phone_str}")
+
+    # 2. If it starts with '00', convert to '+'
+    if phone.startswith("00"):
         return "+" + phone[2:]
+
+    # 3. If starting with 243 without '+', prepend '+'
     if phone.startswith("243") and len(phone) == 12:
         return "+" + phone
-        
-    # Check if it starts with 0 and has 10 digits (DRC format: 0812345678)
+
+    # 4. DRC local formats: starts with '0' (e.g. 0812345678 -> +243812345678)
     if phone.startswith("0") and len(phone) == 10:
         return "+243" + phone[1:]
-        
-    # Check if it is a 9 digit number (812345678)
+
+    # 5. 9-digit DRC numbers (e.g. 812345678 -> +243812345678)
     if len(phone) == 9 and phone[0] in ["8", "9"]:
         return "+243" + phone
-        
-    # Fallback to appending +243 if it doesn't have it
-    if not phone.startswith("+"):
-        # If it has 9 or more digits, assume it just needs prefix
-        if len(phone) >= 9:
-            return "+243" + phone[-9:]
-            
+
+    # 6. Fallback if no '+' prefix: default to adding +243
+    if len(phone) >= 8:
+        return "+243" + phone
+
     raise ValueError(f"Format de téléphone invalide: {phone_str}")
+
 
 def parse_roster_file(file_bytes: bytes, file_name: str) -> List[Dict[str, Any]]:
     """

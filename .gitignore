@@ -46,3 +46,5 @@ Futa/.metadata
 .vscode/
 *.swp
 *.swo
+.firebase/
+Futa/.firebase/

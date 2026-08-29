@@ -43,6 +43,7 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
   int _totalParentsCount = 0;
   int _totalTeachersCount = 0;
   double _totalAmountCollected = 0.0;
+  double _totalAmountToPerceive = 0.0;
   double _recoveryRate = 0.0;
   
   final _dio = dio.Dio(dio.BaseOptions(baseUrl: Config.backendUrl));
@@ -131,7 +132,7 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
         // 3. Fetch details for these students directly belonging to the school
         final studentsRes = await Supabase.instance.client
             .from('students')
-            .select('*, profiles!students_parent_id_fkey(first_name, last_name, phone_number)')
+            .select('*, profiles!students_parent_id_fkey(first_name, last_name, phone_number, address)')
             .eq('school_id', schoolId);
 
         // 4. Merge active installment details with each student profile
@@ -150,6 +151,7 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
           return {
             ...student,
             'installment': activeInst,
+            'all_installments': studentInsts,
           };
         }).toList();
       }
@@ -169,6 +171,7 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
         _totalParentsCount = uniqueParentsCount;
         _totalTeachersCount = estimatedTeachers;
         _totalAmountCollected = totalPaid;
+        _totalAmountToPerceive = totalDue;
         _recoveryRate = recoveryRate;
 
         // Default select first student in list on desktop view if none is selected
@@ -183,6 +186,92 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
       });
     } finally {
       setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _updateParentDetails({
+    required String parentId,
+    required String firstName,
+    required String lastName,
+    required String phoneNumber,
+    String? address,
+  }) async {
+    try {
+      final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+      final response = await _dio.post(
+        '/api/v1/school/update-parent',
+        data: {
+          'parent_id': parentId,
+          'first_name': firstName,
+          'last_name': lastName,
+          'phone_number': phoneNumber,
+          'address': address,
+        },
+        options: dio.Options(
+          headers: {'Authorization': 'Bearer $token'},
+        ),
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profil parent mis à jour avec succès !'),
+            backgroundColor: FutaTheme.success,
+          ),
+        );
+        _loadData(showFullScreenLoading: false);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur de mise à jour: ${e.toString()}')),
+        );
+      }
+    }
+  }
+
+  Future<void> _updateInstallmentDates({
+    String? studentId,
+    required String tranche1Date,
+    required String tranche2Date,
+    required String tranche3Date,
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final schoolId = user.uid;
+
+    try {
+      final token = await user.getIdToken();
+      final response = await _dio.post(
+        '/api/v1/school/update-installment-dates',
+        data: {
+          'school_id': schoolId,
+          'student_id': studentId,
+          'tranche1_date': tranche1Date,
+          'tranche2_date': tranche2Date,
+          'tranche3_date': tranche3Date,
+        },
+        options: dio.Options(
+          headers: {'Authorization': 'Bearer $token'},
+        ),
+      );
+
+      if (mounted) {
+        final msg = response.data['message'] ?? 'Échéances mises à jour.';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(msg),
+            backgroundColor: FutaTheme.success,
+          ),
+        );
+        _loadData(showFullScreenLoading: false);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur de mise à jour des échéances: ${e.toString()}')),
+        );
+      }
     }
   }
 
@@ -419,6 +508,7 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
                     newTotalPaid += ((inst['amount_paid'] ?? inst['paid_amount'] ?? 0.0) as num).toDouble();
                   }
                   _totalAmountCollected = newTotalPaid;
+                  _totalAmountToPerceive = newTotalDue;
                   _recoveryRate = newTotalDue > 0 ? (newTotalPaid / newTotalDue) * 100 : 0.0;
 
                   _selectedStudent = null;
@@ -500,11 +590,14 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
             totalParentsCount: _totalParentsCount,
             totalTeachersCount: _totalTeachersCount,
             totalAmountCollected: _totalAmountCollected,
+            totalAmountToPerceive: _totalAmountToPerceive,
             recoveryRate: _recoveryRate,
             searchController: _searchController,
             cashAmountController: _cashAmountController,
             onUploadRoster: _uploadRoster,
             onApplyCashAdjustment: _applyCashAdjustment,
+            onUpdateParent: _updateParentDetails,
+            onUpdateInstallmentDates: _updateInstallmentDates,
             onLogout: _logout,
             onTabChanged: (index) {
               setState(() {
@@ -538,12 +631,15 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
             totalParentsCount: _totalParentsCount,
             totalTeachersCount: _totalTeachersCount,
             totalAmountCollected: _totalAmountCollected,
+            totalAmountToPerceive: _totalAmountToPerceive,
             recoveryRate: _recoveryRate,
             searchController: _searchController,
             cashAmountController: _cashAmountController,
             onRefresh: () => _loadData(showFullScreenLoading: false),
             onUploadRoster: _uploadRoster,
             onApplyCashAdjustment: _applyCashAdjustment,
+            onUpdateParent: _updateParentDetails,
+            onUpdateInstallmentDates: _updateInstallmentDates,
             onLogout: _logout,
             onTabChanged: (index) {
               setState(() {
@@ -564,4 +660,5 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
       },
     );
   }
+
 }
