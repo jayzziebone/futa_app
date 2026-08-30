@@ -5,6 +5,13 @@ import './school_dashboard_shared_widgets.dart';
 
 class SchoolDashboardWebLayout extends StatelessWidget {
   final String schoolName;
+  final String schoolId;
+  final String adminName;
+  final String adminRoleTitle;
+  final String adminPhoneNumber;
+  final String schoolAddress;
+  final String schoolEmail;
+
   final bool isUploading;
   final List<Map<String, dynamic>> students;
   final List<Map<String, dynamic>> filteredStudents;
@@ -47,6 +54,12 @@ class SchoolDashboardWebLayout extends StatelessWidget {
   const SchoolDashboardWebLayout({
     super.key,
     required this.schoolName,
+    required this.schoolId,
+    required this.adminName,
+    required this.adminRoleTitle,
+    required this.adminPhoneNumber,
+    this.schoolAddress = '',
+    this.schoolEmail = '',
     required this.isUploading,
     required this.students,
     required this.filteredStudents,
@@ -508,21 +521,21 @@ class SchoolDashboardWebLayout extends StatelessWidget {
               ),
               const SizedBox(width: 16),
 
-              const Column(
+              Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    'Admin',
-                    style: TextStyle(
+                    adminName.isNotEmpty ? adminName : 'Administrateur',
+                    style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
                       color: FutaTheme.textDark,
                     ),
                   ),
                   Text(
-                    'Super Administrateur',
-                    style: TextStyle(fontSize: 11, color: FutaTheme.textLight),
+                    adminRoleTitle.isNotEmpty ? adminRoleTitle : 'Admin Principal',
+                    style: const TextStyle(fontSize: 11, color: FutaTheme.textLight),
                   ),
                 ],
               ),

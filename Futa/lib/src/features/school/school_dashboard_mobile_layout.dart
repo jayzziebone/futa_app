@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -7,6 +8,13 @@ import './school_dashboard_shared_widgets.dart';
 
 class SchoolDashboardMobileLayout extends StatelessWidget {
   final String schoolName;
+  final String schoolId;
+  final String adminName;
+  final String adminRoleTitle;
+  final String adminPhoneNumber;
+  final String schoolAddress;
+  final String schoolEmail;
+
   final bool isUploading;
   final List<Map<String, dynamic>> students;
   final List<Map<String, dynamic>> filteredStudents;
@@ -50,6 +58,12 @@ class SchoolDashboardMobileLayout extends StatelessWidget {
   const SchoolDashboardMobileLayout({
     super.key,
     required this.schoolName,
+    required this.schoolId,
+    required this.adminName,
+    required this.adminRoleTitle,
+    required this.adminPhoneNumber,
+    this.schoolAddress = '',
+    this.schoolEmail = '',
     required this.isUploading,
     required this.students,
     required this.filteredStudents,
@@ -355,7 +369,7 @@ class SchoolDashboardMobileLayout extends StatelessWidget {
       case 2:
         return _buildMobilePaymentTab(context);
       case 3:
-        return _buildProfilTab();
+        return _buildProfilTab(context);
       default:
         return _buildMobileAccueilTab(context);
     }
@@ -2185,167 +2199,640 @@ class SchoolDashboardMobileLayout extends StatelessWidget {
     );
   }
 
-  Widget _buildProfilTab() {
+  Widget _buildProfilTab(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
+    final displayPhone = adminPhoneNumber.isNotEmpty
+        ? adminPhoneNumber
+        : (user?.phoneNumber ?? '+243 812 345 678');
+    final displaySchoolId = schoolId.isNotEmpty ? schoolId : (user?.uid ?? 'FB-SCHOOL-1002');
+    
+    // Extract initials for admin avatar
+    String initials = 'AD';
+    final nameParts = adminName.trim().split(RegExp(r'\s+'));
+    if (nameParts.length >= 2 && nameParts[0].isNotEmpty && nameParts[1].isNotEmpty) {
+      initials = '${nameParts[0][0]}${nameParts[1][0]}'.toUpperCase();
+    } else if (nameParts.isNotEmpty && nameParts[0].isNotEmpty) {
+      initials = nameParts[0].substring(0, nameParts[0].length >= 2 ? 2 : 1).toUpperCase();
+    }
+
     return ListView(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
       children: [
-        const Text(
-          'Mon Profil Établissement',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: FutaTheme.textDark,
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
+        // 1. HEADER & STATUS
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const CircleAvatar(
-                      radius: 30,
-                      backgroundColor: FutaTheme.emeraldLight,
-                      child: Icon(
-                        Icons.school,
-                        size: 30,
-                        color: FutaTheme.emeraldGreen,
+              children: const [
+                Text(
+                  'Profil Établissement',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                    color: FutaTheme.textDark,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'Identifiants, rôle & administration',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: FutaTheme.textLight,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0FDF4),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFDCFCE7)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration: const BoxDecoration(
+                      color: FutaTheme.success,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'Session Active',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF166534),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 18),
+
+        // 2. ADMIN PROFILE CARD (NAME, ROLE TITLE, PHONE, SCHOOL ID)
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFF1F5F9)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x060F172A),
+                blurRadius: 14,
+                offset: Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Admin Profile Header Pill
+              Row(
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF232C87), Color(0xFF3944AD)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: FutaTheme.blueDark.withValues(alpha: 0.2),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Text(
+                        initials,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1,
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            schoolName,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: FutaTheme.textDark,
-                            ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          adminName.isNotEmpty ? adminName : 'Administrateur FUTA',
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w900,
+                            color: FutaTheme.textDark,
+                            letterSpacing: -0.3,
                           ),
-                          const SizedBox(height: 4),
-                          const Text(
-                            'Administrateur Scolaire FUTA',
-                            style: TextStyle(
-                              color: FutaTheme.textLight,
-                              fontSize: 13,
-                            ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEEF2FF),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFDBEAFE)),
                           ),
-                        ],
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.verified_user_rounded,
+                                size: 12,
+                                color: FutaTheme.blueDark,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                adminRoleTitle.isNotEmpty ? adminRoleTitle : 'Admin Principal',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: FutaTheme.blueDark,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              const Divider(color: Color(0xFFF1F5F9), height: 1),
+              const SizedBox(height: 16),
+
+              const Text(
+                'IDENTIFIANTS & ACCÈS',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: FutaTheme.textLight,
+                  letterSpacing: 1.1,
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Detail Row 1: Nom Complet
+              _buildModernProfileInfoRow(
+                icon: Icons.person_outline_rounded,
+                label: 'Nom de l\'administrateur',
+                value: adminName.isNotEmpty ? adminName : 'Non renseigné',
+              ),
+              const SizedBox(height: 12),
+
+              // Detail Row 2: Titre / Fonction
+              _buildModernProfileInfoRow(
+                icon: Icons.badge_outlined,
+                label: 'Rôle & Titre Officiel',
+                value: adminRoleTitle.isNotEmpty ? adminRoleTitle : 'Admin Principal',
+              ),
+              const SizedBox(height: 12),
+
+              // Detail Row 3: Téléphone
+              _buildModernProfileInfoRow(
+                icon: Icons.phone_iphone_rounded,
+                label: 'Numéro de téléphone de connexion',
+                value: displayPhone,
+                trailing: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0FDF4),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(Icons.check_circle_rounded, size: 11, color: FutaTheme.success),
+                      SizedBox(width: 3),
+                      Text(
+                        'Vérifié',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF166534),
+                        ),
                       ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Detail Row 4: ID Établissement (School ID) with Copy button
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: const [
+                      Icon(Icons.fingerprint_rounded, size: 14, color: FutaTheme.textLight),
+                      SizedBox(width: 6),
+                      Text(
+                        'ID Établissement (School ID)',
+                        style: TextStyle(
+                          color: FutaTheme.textLight,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            displaySchoolId,
+                            style: const TextStyle(
+                              fontFamily: 'Courier',
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF0F172A),
+                              letterSpacing: 0.5,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        InkWell(
+                          onTap: () {
+                            Clipboard.setData(ClipboardData(text: displaySchoolId));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('ID Établissement copié : $displaySchoolId'),
+                                duration: const Duration(seconds: 2),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(6),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: const Color(0xFFCBD5E1)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(Icons.copy_rounded, size: 12, color: FutaTheme.blueDark),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Copier',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: FutaTheme.blueDark,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+
+        // 3. SCHOOL INSTITUTION CARD BANNER
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF1E1B4B),
+                FutaTheme.blueDark,
+                Color(0xFF2E38A8),
+              ],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: FutaTheme.blueDark.withValues(alpha: 0.2),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.school_rounded, color: Colors.white, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                schoolName.isNotEmpty ? schoolName.toUpperCase() : 'ÉTABLISSEMENT PARTENAIRE',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.5,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            const Icon(Icons.verified, color: FutaTheme.emeraldGreen, size: 16),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Établissement Homologué FUTA Network',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.75),
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.location_on_outlined, size: 14, color: Colors.white.withValues(alpha: 0.8)),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            schoolAddress.isNotEmpty ? schoolAddress : 'Kinshasa, RD Congo',
+                            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(Icons.alternate_email_rounded, size: 14, color: Colors.white.withValues(alpha: 0.8)),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            schoolEmail.isNotEmpty ? schoolEmail : 'contact@futa-school.cd',
+                            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
-                const Text(
-                  'INFORMATIONS DE CONNEXION',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: FutaTheme.textLight,
-                    letterSpacing: 1.1,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _buildInfoDetailRow(
-                  'Numéro de téléphone',
-                  user?.phoneNumber ?? '+243 812 345 678',
-                ),
-                const SizedBox(height: 12),
-                _buildInfoDetailRow(
-                  'ID Établissement',
-                  user?.uid ?? 'FB-SCHOOL-1002',
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'ROSTER / BASE DE DONNÉES',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: FutaTheme.textLight,
-                    letterSpacing: 1.1,
+        const SizedBox(height: 18),
+
+        // 4. ROSTER SYNCHRONIZATION CARD
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFF1F5F9)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x060F172A),
+                blurRadius: 14,
+                offset: Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0FDFA),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.cloud_upload_rounded, size: 18, color: Color(0xFF0D9488)),
                   ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'Synchronisation du Roster',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: FutaTheme.textDark,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Téléchargez le fichier Excel (.xlsx) ou CSV contenant les effectifs élèves et les frais de scolarité pour mettre à jour la base.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: FutaTheme.textLight,
+                  height: 1.4,
                 ),
-                const SizedBox(height: 16),
-                isUploading
-                    ? const Center(
-                        child: CircularProgressIndicator(
-                          color: FutaTheme.blueDark,
-                        ),
-                      )
-                    : SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: onUploadRoster,
-                          icon: const Icon(Icons.upload_file),
-                          label: const Text(
-                            'Importer une mise à jour Roster (Excel/CSV)',
+              ),
+              const SizedBox(height: 16),
+              isUploading
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: FutaTheme.blueDark,
+                      ),
+                    )
+                  : SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: FutaTheme.blueDark,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
                         ),
+                        onPressed: onUploadRoster,
+                        icon: const Icon(Icons.upload_file_rounded, size: 18),
+                        label: const Text(
+                          'Importer une mise à jour Roster',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
                       ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Téléchargez le fichier Excel ou CSV contenant la liste complète ou mise à jour de vos élèves pour synchroniser les contrats de paiement.',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: FutaTheme.textLight,
-                    height: 1.4,
-                  ),
-                ),
-              ],
-            ),
+                    ),
+            ],
           ),
         ),
-        // const SizedBox(height: 24),
-        // Padding(
-        //   padding: const EdgeInsets.symmetric(horizontal: 16.0),
-        //   child: ElevatedButton.icon(
-        //     style: ElevatedButton.styleFrom(
-        //       backgroundColor: FutaTheme.error,
-        //       foregroundColor: Colors.white,
-        //       padding: const EdgeInsets.symmetric(vertical: 12),
-        //     ),
-        //     onPressed: onLogout,
-        //     icon: const Icon(Icons.logout),
-        //     label: const Text('Se déconnecter'),
-        //   ),
-        // ),
+        const SizedBox(height: 18),
+
+        // 5. SECURITY & LOGOUT BUTTON
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFFEE2E2)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF2F2),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.logout_rounded, size: 18, color: FutaTheme.error),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text(
+                        'Déconnexion',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: FutaTheme.textDark,
+                        ),
+                      ),
+                      Text(
+                        'Fermer la session actuelle',
+                        style: TextStyle(fontSize: 11, color: FutaTheme.textLight),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Color(0xFFFCA5A5)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                ),
+                onPressed: onLogout,
+                child: const Text(
+                  'Quitter',
+                  style: TextStyle(
+                    color: FutaTheme.error,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
       ],
     );
   }
 
-  Widget _buildInfoDetailRow(String label, String value) {
+  Widget _buildModernProfileInfoRow({
+    required IconData icon,
+    required String label,
+    required String value,
+    Widget? trailing,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(color: FutaTheme.textLight, fontSize: 11),
+        Row(
+          children: [
+            Icon(icon, size: 14, color: FutaTheme.textLight),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: const TextStyle(
+                color: FutaTheme.textLight,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            color: FutaTheme.textDark,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: FutaTheme.textDark,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (trailing != null) trailing,
+          ],
         ),
       ],
     );

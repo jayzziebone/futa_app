@@ -40,7 +40,12 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
   // Navigation & School Metadata
   int _currentTab = 0;
   String _schoolName = 'FUTA Administration';
-  String? _schoolId;
+  String _schoolId = '';
+  String _adminName = 'Administrateur Scolaire';
+  String _adminRoleTitle = 'Admin Principal';
+  String _adminPhoneNumber = '';
+  String _schoolAddress = '';
+  String _schoolEmail = '';
   
   // Analytics variables
   int _totalStudentsCount = 0;
@@ -89,26 +94,52 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
       // Ensure valid Supabase JWT headers
       await AuthTokenManager.applySupabaseHeaders();
 
-      // 0. Resolve the actual school_id (Supports Primary Admin AND Co-Admins 2, 3, 4)
+      // 0. Resolve the actual school_id and logged-in admin metadata
       String resolvedSchoolId = uid;
+      String resolvedAdminName = user.displayName?.isNotEmpty == true ? user.displayName! : 'Administrateur FUTA';
+      String resolvedAdminRole = 'Admin Principal';
+      String resolvedAdminPhone = user.phoneNumber ?? '';
+
       try {
         final adminRes = await Supabase.instance.client
             .from('school_admins')
-            .select('school_id, admin_name, role_title')
+            .select('school_id, admin_name, role_title, phone_number')
             .eq('user_id', uid)
             .maybeSingle();
 
-        if (adminRes != null && adminRes['school_id'] != null) {
-          resolvedSchoolId = adminRes['school_id'] as String;
+        if (adminRes != null) {
+          if (adminRes['school_id'] != null) {
+            resolvedSchoolId = adminRes['school_id'] as String;
+          }
+          if (adminRes['admin_name'] != null && (adminRes['admin_name'] as String).trim().isNotEmpty) {
+            resolvedAdminName = adminRes['admin_name'] as String;
+          }
+          if (adminRes['role_title'] != null && (adminRes['role_title'] as String).trim().isNotEmpty) {
+            resolvedAdminRole = adminRes['role_title'] as String;
+          }
+          if (adminRes['phone_number'] != null && (adminRes['phone_number'] as String).trim().isNotEmpty) {
+            resolvedAdminPhone = adminRes['phone_number'] as String;
+          }
         } else if (cleanPhone.isNotEmpty) {
           final phoneAdminRes = await Supabase.instance.client
               .from('school_admins')
-              .select('id, school_id, admin_name, role_title')
+              .select('id, school_id, admin_name, role_title, phone_number')
               .eq('phone_number', cleanPhone)
               .maybeSingle();
 
-          if (phoneAdminRes != null && phoneAdminRes['school_id'] != null) {
-            resolvedSchoolId = phoneAdminRes['school_id'] as String;
+          if (phoneAdminRes != null) {
+            if (phoneAdminRes['school_id'] != null) {
+              resolvedSchoolId = phoneAdminRes['school_id'] as String;
+            }
+            if (phoneAdminRes['admin_name'] != null && (phoneAdminRes['admin_name'] as String).trim().isNotEmpty) {
+              resolvedAdminName = phoneAdminRes['admin_name'] as String;
+            }
+            if (phoneAdminRes['role_title'] != null && (phoneAdminRes['role_title'] as String).trim().isNotEmpty) {
+              resolvedAdminRole = phoneAdminRes['role_title'] as String;
+            }
+            if (phoneAdminRes['phone_number'] != null && (phoneAdminRes['phone_number'] as String).trim().isNotEmpty) {
+              resolvedAdminPhone = phoneAdminRes['phone_number'] as String;
+            }
             try {
               await Supabase.instance.client
                   .from('school_admins')
@@ -122,13 +153,16 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
       }
 
       _schoolId = resolvedSchoolId;
+      _adminName = resolvedAdminName;
+      _adminRoleTitle = resolvedAdminRole;
+      _adminPhoneNumber = resolvedAdminPhone;
       final schoolId = resolvedSchoolId;
 
-      // 1. Fetch School Profile details to display school name
+      // 1. Fetch School Profile details to display school name and official contacts
       try {
         final schoolProfileRes = await Supabase.instance.client
             .from('school_profiles')
-            .select('school_name')
+            .select('school_name, address, email, phone_number')
             .eq('id', schoolId)
             .maybeSingle();
 
@@ -137,6 +171,8 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
           if (sName.isNotEmpty) {
             _schoolName = sName;
           }
+          _schoolAddress = schoolProfileRes['address'] as String? ?? '';
+          _schoolEmail = schoolProfileRes['email'] as String? ?? '';
         }
       } catch (profileErr) {
         debugPrint('Failed to load school profile name: $profileErr');
@@ -282,7 +318,7 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
   }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
-    final schoolId = _schoolId ?? user.uid;
+    final schoolId = _schoolId.isNotEmpty ? _schoolId : user.uid;
 
     try {
       final token = await user.getIdToken();
@@ -340,7 +376,7 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
       );
       return;
     }
-    final schoolId = _schoolId ?? user.uid;
+    final schoolId = _schoolId.isNotEmpty ? _schoolId : user.uid;
 
 
     try {
@@ -649,6 +685,12 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
         if (constraints.maxWidth > 900) {
           return SchoolDashboardWebLayout(
             schoolName: _schoolName,
+            schoolId: _schoolId,
+            adminName: _adminName,
+            adminRoleTitle: _adminRoleTitle,
+            adminPhoneNumber: _adminPhoneNumber,
+            schoolAddress: _schoolAddress,
+            schoolEmail: _schoolEmail,
             isUploading: _isUploading,
             students: _students,
             filteredStudents: _filteredStudents,
@@ -690,6 +732,12 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
         } else {
           return SchoolDashboardMobileLayout(
             schoolName: _schoolName,
+            schoolId: _schoolId,
+            adminName: _adminName,
+            adminRoleTitle: _adminRoleTitle,
+            adminPhoneNumber: _adminPhoneNumber,
+            schoolAddress: _schoolAddress,
+            schoolEmail: _schoolEmail,
             isUploading: _isUploading,
             students: _students,
             filteredStudents: _filteredStudents,
