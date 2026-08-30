@@ -40,11 +40,13 @@ async def upload_roster(
             detail="Accès interdit. Seul un administrateur scolaire peut importer un roster."
         )
         
-    if current_user.get("uid") != school_id:
+    user_school_id = current_user.get("school_id") or current_user.get("uid")
+    if user_school_id != school_id:
         raise HTTPException(
             status_code=403,
             detail="Accès interdit. Vous ne pouvez pas modifier le roster d'un autre établissement."
         )
+
 
     # Validate extension
     file_name = file.filename
@@ -139,13 +141,15 @@ def update_installment_dates(
             detail="Accès interdit. Seul un administrateur scolaire peut modifier les échéances."
         )
 
-    school_id = request.school_id or current_user.get("uid")
+    user_school_id = current_user.get("school_id") or current_user.get("uid")
+    school_id = request.school_id or user_school_id
 
-    if current_user.get("uid") != school_id:
+    if user_school_id != school_id:
         raise HTTPException(
             status_code=403,
             detail="Accès interdit. Vous ne pouvez modifier que les échéances de votre établissement."
         )
+
 
     try:
         # 1. Retrieve all contracts for this school

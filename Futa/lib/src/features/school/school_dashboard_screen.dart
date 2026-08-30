@@ -40,6 +40,7 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
   // Navigation & School Metadata
   int _currentTab = 0;
   String _schoolName = 'FUTA Administration';
+  String? _schoolId;
   
   // Analytics variables
   int _totalStudentsCount = 0;
@@ -82,12 +83,48 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
       if (user == null) {
         throw Exception("Aucune session utilisateur active trouvée. Veuillez vous reconnecter.");
       }
-      final schoolId = user.uid;
+      final uid = user.uid;
+      final cleanPhone = (user.phoneNumber ?? '').replaceAll(' ', '');
 
       // Ensure valid Supabase JWT headers
       await AuthTokenManager.applySupabaseHeaders();
 
-      // 0. Fetch School Profile details to display school name
+      // 0. Resolve the actual school_id (Supports Primary Admin AND Co-Admins 2, 3, 4)
+      String resolvedSchoolId = uid;
+      try {
+        final adminRes = await Supabase.instance.client
+            .from('school_admins')
+            .select('school_id, admin_name, role_title')
+            .eq('user_id', uid)
+            .maybeSingle();
+
+        if (adminRes != null && adminRes['school_id'] != null) {
+          resolvedSchoolId = adminRes['school_id'] as String;
+        } else if (cleanPhone.isNotEmpty) {
+          final phoneAdminRes = await Supabase.instance.client
+              .from('school_admins')
+              .select('id, school_id, admin_name, role_title')
+              .eq('phone_number', cleanPhone)
+              .maybeSingle();
+
+          if (phoneAdminRes != null && phoneAdminRes['school_id'] != null) {
+            resolvedSchoolId = phoneAdminRes['school_id'] as String;
+            try {
+              await Supabase.instance.client
+                  .from('school_admins')
+                  .update({'user_id': uid, 'status': 'ACTIVE'})
+                  .eq('id', phoneAdminRes['id']);
+            } catch (_) {}
+          }
+        }
+      } catch (adminErr) {
+        debugPrint('Error resolving school_admins: $adminErr');
+      }
+
+      _schoolId = resolvedSchoolId;
+      final schoolId = resolvedSchoolId;
+
+      // 1. Fetch School Profile details to display school name
       try {
         final schoolProfileRes = await Supabase.instance.client
             .from('school_profiles')
@@ -104,6 +141,7 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
       } catch (profileErr) {
         debugPrint('Failed to load school profile name: $profileErr');
       }
+
 
       // 1. Get contracts for this school
       final contractsRes = await Supabase.instance.client
@@ -244,7 +282,7 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
   }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
-    final schoolId = user.uid;
+    final schoolId = _schoolId ?? user.uid;
 
     try {
       final token = await user.getIdToken();
@@ -302,7 +340,8 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
       );
       return;
     }
-    final schoolId = user.uid;
+    final schoolId = _schoolId ?? user.uid;
+
 
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
