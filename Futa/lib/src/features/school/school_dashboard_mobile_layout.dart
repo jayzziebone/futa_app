@@ -88,16 +88,6 @@ class SchoolDashboardMobileLayout extends StatelessWidget {
     return sum / students.length;
   }
 
-  List<Map<String, dynamic>> _getTopPerformers() {
-    final list = List<Map<String, dynamic>>.from(students);
-    list.sort((a, b) {
-      final double scoreA = ((a['academic_score'] ?? 0.0) as num).toDouble();
-      final double scoreB = ((b['academic_score'] ?? 0.0) as num).toDouble();
-      return scoreB.compareTo(scoreA);
-    });
-    return list.take(3).toList();
-  }
-
   List<String> _getPast6MonthsLabels() {
     final monthsFr = [
       'Jan',
@@ -374,8 +364,6 @@ class SchoolDashboardMobileLayout extends StatelessWidget {
   Widget _buildMobileAccueilTab(BuildContext context) {
     final months = _getPast6MonthsLabels();
     final revenues = _getPast6MonthsRevenues();
-    final averageAttendance = _getAverageAttendance();
-    final topPerformers = _getTopPerformers();
     final currentYear = DateTime.now().year.toString();
 
     return ListView(
@@ -765,121 +753,7 @@ class SchoolDashboardMobileLayout extends StatelessWidget {
         ),
         const SizedBox(height: 18),
 
-        // 6. TOP PERFORMANCES (ACADEMIC EXCELLENCE CARD)
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFF1F5F9)),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x060F172A),
-                blurRadius: 14,
-                offset: Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFFBEB),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(Icons.emoji_events_rounded, size: 18, color: Color(0xFFD97706)),
-                      ),
-                      const SizedBox(width: 10),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
-                          Text(
-                            'Top Performances',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: FutaTheme.textDark,
-                            ),
-                          ),
-                          Text(
-                            'Meilleurs élèves du trimestre',
-                            style: TextStyle(fontSize: 11, color: FutaTheme.textLight),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const Icon(Icons.military_tech_rounded, color: Color(0xFFF59E0B), size: 22),
-                ],
-              ),
-              const SizedBox(height: 16),
-              if (topPerformers.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 24),
-                  child: Center(
-                    child: Text(
-                      'Aucune donnée disponible pour le moment.',
-                      style: TextStyle(
-                        color: FutaTheme.textLight,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                )
-              else
-                ...List.generate(topPerformers.length, (index) {
-                  final s = topPerformers[index];
-                  final fullName = '${s['first_name']} ${s['last_name']}';
-                  final matricule =
-                      s['id']?.toString().substring(0, 4).toUpperCase() ?? '';
-                  final classroom = s['classroom'] ?? 'Classe';
-                  final double score = ((s['academic_score'] ?? 0.0) as num).toDouble();
-                  final percentageStr = '${score.toStringAsFixed(1)}/20';
-
-                  return _buildModernTopPerformanceItem(
-                    rank: index + 1,
-                    name: fullName,
-                    sub: 'Matricule: #$matricule • $classroom',
-                    score: percentageStr,
-                  );
-                }),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Color(0xFFE2E8F0)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                icon: const Icon(Icons.list_alt_rounded, size: 16, color: FutaTheme.blueDark),
-                label: const Text(
-                  'Voir le classement complet',
-                  style: TextStyle(
-                    color: FutaTheme.blueDark,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                  ),
-                ),
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Le classement complet est accessible dans le menu Élèves.'),
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 18),
-
-        // 7. SMART ACTION BANNER CARD
+        // 6. SMART ACTION BANNER CARD
         Container(
           padding: const EdgeInsets.all(22),
           decoration: BoxDecoration(
@@ -1089,106 +963,6 @@ class SchoolDashboardMobileLayout extends StatelessWidget {
       ),
     );
   }
-
-  Widget _buildModernTopPerformanceItem({
-    required int rank,
-    required String name,
-    required String sub,
-    required String score,
-  }) {
-    Color medalBg;
-    Color medalText;
-    if (rank == 1) {
-      medalBg = const Color(0xFFFEF3C7);
-      medalText = const Color(0xFFD97706);
-    } else if (rank == 2) {
-      medalBg = const Color(0xFFF1F5F9);
-      medalText = const Color(0xFF475569);
-    } else {
-      medalBg = const Color(0xFFFFF7ED);
-      medalText = const Color(0xFFEA580C);
-    }
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFF1F5F9)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              color: medalBg,
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(
-                '#$rank',
-                style: TextStyle(
-                  color: medalText,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 11,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                    color: FutaTheme.textDark,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  sub,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: FutaTheme.textLight,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF0FDF4),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFDCFCE7)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.star_rounded, size: 13, color: Color(0xFF16A34A)),
-                const SizedBox(width: 3),
-                Text(
-                  score,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF15803D),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
 
   Widget _buildElevesTab(BuildContext context) {
     return RefreshIndicator(
