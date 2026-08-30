@@ -379,319 +379,709 @@ class SchoolDashboardMobileLayout extends StatelessWidget {
     final currentYear = DateTime.now().year.toString();
 
     return ListView(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
       children: [
-        const Text(
-          'Tableau de bord',
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: FutaTheme.textDark,
-          ),
+        // 1. HEADER & GREETING
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Text(
+                  'Tableau de bord',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                    color: FutaTheme.textDark,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'Vue d\'ensemble & performance',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: FutaTheme.textLight,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x05000000),
+                    blurRadius: 6,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.calendar_today_outlined, size: 13, color: FutaTheme.blueDark),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Année $currentYear',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: FutaTheme.textDark,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 16),
 
-        // Horizontal Stats Cards matching Image 3
-        SizedBox(
-          height: 100,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            children: [
-              _buildMobileStatsCard(
-                'Étudiants',
-                '$totalStudentsCount',
-                Icons.school,
-                Colors.blue.shade50,
-                Colors.blue,
-              ),
-              const SizedBox(width: 12),
-              _buildMobileStatsCard(
-                'Enseignants',
-                '$totalTeachersCount',
-                Icons.badge,
-                Colors.teal.shade50,
-                Colors.teal,
-              ),
-              const SizedBox(width: 12),
-              _buildMobileStatsCard(
-                'Parents',
-                '$totalParentsCount',
-                Icons.people,
-                Colors.purple.shade50,
-                Colors.purple,
-              ),
-              const SizedBox(width: 12),
-              _buildMobileStatsCard(
-                'Collecté',
-                '${NumberFormat.compact(locale: 'fr').format(totalAmountCollected)} FC',
-                Icons.payments,
-                Colors.red.shade50,
-                Colors.red,
+        // 2. HERO SCHOOL CARD BANNER
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF1E1B4B), // Deep Slate Navy
+                FutaTheme.blueDark, // Brand Deep Indigo
+                Color(0xFF313B9B), // Vibrant Indigo
+              ],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: FutaTheme.blueDark.withValues(alpha: 0.22),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
               ),
             ],
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // Revenus Totaux Card matching Image 3
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Revenus Mensuels',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: FutaTheme.textDark,
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade200),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        currentYear,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  height: 150,
-                  child: RevenusTotauxBarChart(
-                    months: months,
-                    revenues: revenues,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // Taux de Recouvrement Card
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Taux de Recouvrement',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: FutaTheme.textDark,
-                  ),
-                ),
-                const Text(
-                  'Pourcentage perçu sur le montant total à percevoir',
-                  style: TextStyle(color: FutaTheme.textLight, fontSize: 12),
-                ),
-                const SizedBox(height: 20),
-                Center(
-                  child: CollectionRingChart(
-                    recoveryRate: recoveryRate,
-                    totalAmountCollected: totalAmountCollected,
-                    totalAmountToPerceive: totalAmountToPerceive,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 16),
-
-        // Top Performances ranking matching Image 3
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Top Performances',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: FutaTheme.textDark,
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.more_horiz),
-                      onPressed: () {},
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                if (topPerformers.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 20),
-                    child: Center(
-                      child: Text(
-                        'Aucune donnée disponible.',
-                        style: TextStyle(
-                          color: FutaTheme.textLight,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                  )
-                else
-                  ...List.generate(topPerformers.length, (index) {
-                    final s = topPerformers[index];
-                    final fullName = '${s['first_name']} ${s['last_name']}';
-                    final matricule =
-                        s['id']?.toString().substring(0, 4).toUpperCase() ?? '';
-                    final classroom = s['classroom'] ?? 'Classe';
-                    final double score = ((s['academic_score'] ?? 0.0) as num)
-                        .toDouble();
-                    final percentageStr = '${score.toStringAsFixed(1)}/20';
-
-                    // Assign color dynamically
-                    Color circleColor = Colors.purple;
-                    if (index == 1) circleColor = Colors.teal;
-                    if (index == 2) circleColor = Colors.orange;
-
-                    return _buildTopPerformanceItem(
-                      fullName,
-                      'Matricule: #$matricule • $classroom',
-                      percentageStr,
-                      circleColor,
-                    );
-                  }),
-                const SizedBox(height: 16),
-                OutlinedButton(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Le classement complet est disponible dans la section Contrats.',
-                        ),
-                      ),
-                    );
-                  },
-                  child: const Text('Voir tout le classement'),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // Promotional call-out banner card matching Image 3
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1E293B),
-            borderRadius: BorderRadius.circular(16),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Gérez mieux votre école',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Découvrez nos nouveaux outils de gestion de contrats et paiements automatisés.',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 13,
-                  height: 1.4,
-                ),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                    ),
+                    child: const Icon(
+                      Icons.account_balance,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                schoolName.isNotEmpty ? schoolName.toUpperCase() : 'FUTA SCHOOL',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.5,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            const Icon(
+                              Icons.verified,
+                              color: FutaTheme.emeraldGreen,
+                              size: 16,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Portail Administratif & Financier',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.75),
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: const Color(0xFF1E293B),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
-                  ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
                 ),
-                onPressed: () {},
-                child: const Text(
-                  'Explorer',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildHeroMetric('ÉLÈVES', '$totalStudentsCount', Icons.school_outlined),
+                    Container(width: 1, height: 24, color: Colors.white.withValues(alpha: 0.2)),
+                    _buildHeroMetric('CLASSES', '${_getDistinctClassesCount()}', Icons.grid_view),
+                    Container(width: 1, height: 24, color: Colors.white.withValues(alpha: 0.2)),
+                    _buildHeroMetric(
+                      'RECOUVREMENT',
+                      '${recoveryRate.isNaN ? 0 : recoveryRate.clamp(0, 100).round()}%',
+                      Icons.donut_large,
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 18),
+
+        // 3. HORIZONTAL STATS CARDS CAROUSEL
+        SizedBox(
+          height: 116,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            clipBehavior: Clip.none,
+            children: [
+              _buildModernStatsCard(
+                label: 'Étudiants',
+                value: '$totalStudentsCount',
+                tag: 'Inscrits',
+                icon: Icons.school_rounded,
+                bgGradient: const [Color(0xFFEEF2FF), Color(0xFFE0E7FF)],
+                accentColor: FutaTheme.blueDark,
+              ),
+              const SizedBox(width: 12),
+              _buildModernStatsCard(
+                label: 'Enseignants',
+                value: '$totalTeachersCount',
+                tag: 'Actifs',
+                icon: Icons.badge_rounded,
+                bgGradient: const [Color(0xFFF0FDFA), Color(0xFFCCFBF1)],
+                accentColor: const Color(0xFF0D9488),
+              ),
+              const SizedBox(width: 12),
+              _buildModernStatsCard(
+                label: 'Parents',
+                value: '$totalParentsCount',
+                tag: 'Tuteurs',
+                icon: Icons.people_alt_rounded,
+                bgGradient: const [Color(0xFFFAF5FF), Color(0xFFF3E8FF)],
+                accentColor: const Color(0xFF7C3AED),
+              ),
+              const SizedBox(width: 12),
+              _buildModernStatsCard(
+                label: 'Collecté',
+                value: '${NumberFormat.compact(locale: 'fr').format(totalAmountCollected)} FC',
+                tag: 'Scolarité',
+                icon: Icons.account_balance_wallet_rounded,
+                bgGradient: const [Color(0xFFFFFBEB), Color(0xFFFEF3C7)],
+                accentColor: const Color(0xFFD97706),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+
+        // 4. REVENUS SCOLAIRES MENSUELS CARD
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFF1F5F9)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x060F172A),
+                blurRadius: 14,
+                offset: Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFF6FF),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.bar_chart_rounded, size: 18, color: FutaTheme.blueDark),
+                      ),
+                      const SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          Text(
+                            'Revenus Scolaires',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: FutaTheme.textDark,
+                            ),
+                          ),
+                          Text(
+                            'Encaissements des 6 derniers mois',
+                            style: TextStyle(fontSize: 11, color: FutaTheme.textLight),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Text(
+                      currentYear,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: FutaTheme.textDark,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                height: 160,
+                child: RevenusTotauxBarChart(
+                  months: months,
+                  revenues: revenues,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+
+        // 5. TAUX DE RECOUVREMENT CARD
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFF1F5F9)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x060F172A),
+                blurRadius: 14,
+                offset: Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0FDF4),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.pie_chart_outline_rounded, size: 18, color: FutaTheme.success),
+                      ),
+                      const SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          Text(
+                            'Taux de Recouvrement',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: FutaTheme.textDark,
+                            ),
+                          ),
+                          Text(
+                            'Santé financière & suivi des soldes',
+                            style: TextStyle(fontSize: 11, color: FutaTheme.textLight),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: recoveryRate >= 70
+                          ? const Color(0xFFF0FDF4)
+                          : (recoveryRate >= 40 ? const Color(0xFFFFFBEB) : const Color(0xFFFEF2F2)),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      recoveryRate >= 70 ? 'Optimal' : (recoveryRate >= 40 ? 'Moyen' : 'À relancer'),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: recoveryRate >= 70
+                            ? FutaTheme.success
+                            : (recoveryRate >= 40 ? const Color(0xFFD97706) : FutaTheme.error),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Center(
+                child: CollectionRingChart(
+                  recoveryRate: recoveryRate,
+                  totalAmountCollected: totalAmountCollected,
+                  totalAmountToPerceive: totalAmountToPerceive,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+
+        // 6. TOP PERFORMANCES (ACADEMIC EXCELLENCE CARD)
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFF1F5F9)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x060F172A),
+                blurRadius: 14,
+                offset: Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFFBEB),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.emoji_events_rounded, size: 18, color: Color(0xFFD97706)),
+                      ),
+                      const SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          Text(
+                            'Top Performances',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: FutaTheme.textDark,
+                            ),
+                          ),
+                          Text(
+                            'Meilleurs élèves du trimestre',
+                            style: TextStyle(fontSize: 11, color: FutaTheme.textLight),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const Icon(Icons.military_tech_rounded, color: Color(0xFFF59E0B), size: 22),
+                ],
+              ),
+              const SizedBox(height: 16),
+              if (topPerformers.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Center(
+                    child: Text(
+                      'Aucune donnée disponible pour le moment.',
+                      style: TextStyle(
+                        color: FutaTheme.textLight,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                )
+              else
+                ...List.generate(topPerformers.length, (index) {
+                  final s = topPerformers[index];
+                  final fullName = '${s['first_name']} ${s['last_name']}';
+                  final matricule =
+                      s['id']?.toString().substring(0, 4).toUpperCase() ?? '';
+                  final classroom = s['classroom'] ?? 'Classe';
+                  final double score = ((s['academic_score'] ?? 0.0) as num).toDouble();
+                  final percentageStr = '${score.toStringAsFixed(1)}/20';
+
+                  return _buildModernTopPerformanceItem(
+                    rank: index + 1,
+                    name: fullName,
+                    sub: 'Matricule: #$matricule • $classroom',
+                    score: percentageStr,
+                  );
+                }),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Color(0xFFE2E8F0)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                icon: const Icon(Icons.list_alt_rounded, size: 16, color: FutaTheme.blueDark),
+                label: const Text(
+                  'Voir le classement complet',
+                  style: TextStyle(
+                    color: FutaTheme.blueDark,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Le classement complet est accessible dans le menu Élèves.'),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+
+        // 7. SMART ACTION BANNER CARD
+        Container(
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF0F172A),
+                Color(0xFF1E293B),
+              ],
+            ),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x140F172A),
+                blurRadius: 16,
+                offset: Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: FutaTheme.emeraldGreen.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.auto_awesome, color: FutaTheme.emeraldGreen, size: 18),
+                  ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'Automatisation & Roster',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Synchronisez les paiements M-Pesa instantanés et générez les relances SMS pour les parents en un clic.',
+                style: TextStyle(
+                  color: Color(0xFF94A3B8),
+                  fontSize: 12,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: const Color(0xFF0F172A),
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  icon: const Icon(Icons.upload_file_rounded, size: 18, color: Color(0xFF0F172A)),
+                  label: const Text(
+                    'Importer un Roster Élèves',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  onPressed: onUploadRoster,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
       ],
     );
   }
 
-  Widget _buildMobileStatsCard(
-    String label,
-    String value,
-    IconData icon,
-    Color bg,
-    Color iconColor,
-  ) {
+  int _getDistinctClassesCount() {
+    return students.map((s) => s['classroom']?.toString() ?? '').where((c) => c.isNotEmpty).toSet().length;
+  }
+
+  Widget _buildHeroMetric(String label, String value, IconData icon) {
+    return Column(
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 12, color: Colors.white.withValues(alpha: 0.8)),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+                color: Colors.white.withValues(alpha: 0.75),
+                letterSpacing: 0.6,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 3),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
+            color: Colors.white,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildModernStatsCard({
+    required String label,
+    required String value,
+    required String tag,
+    required IconData icon,
+    required List<Color> bgGradient,
+    required Color accentColor,
+  }) {
     return Container(
-      width: 160,
-      padding: const EdgeInsets.all(12),
+      width: 168,
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            backgroundColor: bg,
-            radius: 18,
-            child: Icon(icon, color: iconColor, size: 18),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFF1F5F9)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x060F172A),
+            blurRadius: 10,
+            offset: Offset(0, 3),
           ),
-          const SizedBox(width: 12),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: bgGradient,
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Icon(icon, color: accentColor, size: 18),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Text(
+                  tag,
+                  style: const TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    color: FutaTheme.textLight,
+                  ),
+                ),
+              ),
+            ],
+          ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                label,
+                label.toUpperCase(),
                 style: const TextStyle(
                   fontSize: 10,
                   color: FutaTheme.textLight,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 2),
               Text(
                 value,
                 style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
                   color: FutaTheme.textDark,
+                  letterSpacing: -0.3,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
@@ -700,22 +1090,51 @@ class SchoolDashboardMobileLayout extends StatelessWidget {
     );
   }
 
-  Widget _buildTopPerformanceItem(
-    String name,
-    String sub,
-    String score,
-    Color avatarBg,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+  Widget _buildModernTopPerformanceItem({
+    required int rank,
+    required String name,
+    required String sub,
+    required String score,
+  }) {
+    Color medalBg;
+    Color medalText;
+    if (rank == 1) {
+      medalBg = const Color(0xFFFEF3C7);
+      medalText = const Color(0xFFD97706);
+    } else if (rank == 2) {
+      medalBg = const Color(0xFFF1F5F9);
+      medalText = const Color(0xFF475569);
+    } else {
+      medalBg = const Color(0xFFFFF7ED);
+      medalText = const Color(0xFFEA580C);
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFF1F5F9)),
+      ),
       child: Row(
         children: [
-          CircleAvatar(
-            backgroundColor: avatarBg.withOpacity(0.1),
-            radius: 18,
-            child: Text(
-              name[0],
-              style: TextStyle(color: avatarBg, fontWeight: FontWeight.bold),
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: medalBg,
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                '#$rank',
+                style: TextStyle(
+                  color: medalText,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 11,
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -743,24 +1162,33 @@ class SchoolDashboardMobileLayout extends StatelessWidget {
             ),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
             decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
-              borderRadius: BorderRadius.circular(20),
+              color: const Color(0xFFF0FDF4),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFDCFCE7)),
             ),
-            child: Text(
-              score,
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF0F172A),
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.star_rounded, size: 13, color: Color(0xFF16A34A)),
+                const SizedBox(width: 3),
+                Text(
+                  score,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF15803D),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
       ),
     );
   }
+
 
   Widget _buildElevesTab(BuildContext context) {
     return RefreshIndicator(

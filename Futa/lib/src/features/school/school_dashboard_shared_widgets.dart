@@ -219,17 +219,18 @@ class CollectionRingChart extends StatelessWidget {
   Widget build(BuildContext context) {
     final int displayRate = recoveryRate.isNaN ? 0 : recoveryRate.clamp(0, 100).round();
     final double remaining = (totalAmountToPerceive - totalAmountCollected).clamp(0.0, double.infinity);
+    final double progressRatio = totalAmountToPerceive > 0 ? (totalAmountCollected / totalAmountToPerceive).clamp(0.0, 1.0) : 0.0;
 
     return Column(
       children: [
         SizedBox(
-          width: 140,
-          height: 140,
+          width: 150,
+          height: 150,
           child: CustomPaint(
             painter: RingChartPainter(
               percentage: displayRate.toDouble(),
-              color: FutaTheme.emeraldGreen,
-              backgroundColor: const Color(0xFFE2E8F0),
+              color: displayRate >= 70 ? FutaTheme.success : (displayRate >= 40 ? FutaTheme.emeraldGreen : FutaTheme.error),
+              backgroundColor: const Color(0xFFF1F5F9),
             ),
             child: Center(
               child: Column(
@@ -238,17 +239,26 @@ class CollectionRingChart extends StatelessWidget {
                   Text(
                     '$displayRate%',
                     style: const TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.bold,
-                      color: FutaTheme.blueDark,
+                      fontSize: 30,
+                      fontWeight: FontWeight.w900,
+                      color: FutaTheme.textDark,
+                      letterSpacing: -0.5,
                     ),
                   ),
-                  const Text(
-                    'Recouvrement',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: FutaTheme.textLight,
-                      fontWeight: FontWeight.bold,
+                  const SizedBox(height: 2),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Text(
+                      'Recouvré',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: FutaTheme.blueDark,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
@@ -256,59 +266,138 @@ class CollectionRingChart extends StatelessWidget {
             ),
           ),
         ),
+        const SizedBox(height: 20),
+        // Linear Progress Bar
+        ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: LinearProgressIndicator(
+            value: progressRatio,
+            minHeight: 6,
+            backgroundColor: const Color(0xFFF1F5F9),
+            valueColor: AlwaysStoppedAnimation<Color>(
+              displayRate >= 70 ? FutaTheme.success : (displayRate >= 40 ? FutaTheme.emeraldGreen : FutaTheme.error),
+            ),
+          ),
+        ),
         const SizedBox(height: 16),
+        // Modern Pill Metric Indicators
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            Column(
-              children: [
-                Text(
-                  '${NumberFormat.compact(locale: 'fr').format(totalAmountCollected)} FC',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: FutaTheme.emeraldGreen,
-                  ),
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0FDF4),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFDCFCE7)),
                 ),
-                const Text(
-                  'Montant Perçu',
-                  style: TextStyle(fontSize: 10, color: FutaTheme.textLight),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: const [
+                        Icon(Icons.check_circle, size: 14, color: FutaTheme.success),
+                        SizedBox(width: 4),
+                        Text(
+                          'Perçu',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF166534),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '${NumberFormat.compact(locale: 'fr').format(totalAmountCollected)} FC',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF15803D),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
-            Container(width: 1.5, height: 24, color: Colors.grey.shade200),
-            Column(
-              children: [
-                Text(
-                  '${NumberFormat.compact(locale: 'fr').format(totalAmountToPerceive)} FC',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: FutaTheme.blueDark,
-                  ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFDBEAFE)),
                 ),
-                const Text(
-                  'Total à Percevoir',
-                  style: TextStyle(fontSize: 10, color: FutaTheme.textLight),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: const [
+                        Icon(Icons.flag, size: 14, color: FutaTheme.blueDark),
+                        SizedBox(width: 4),
+                        Text(
+                          'Attendu',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: FutaTheme.blueDark,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '${NumberFormat.compact(locale: 'fr').format(totalAmountToPerceive)} FC',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: FutaTheme.blueDark,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
-            Container(width: 1.5, height: 24, color: Colors.grey.shade200),
-            Column(
-              children: [
-                Text(
-                  '${NumberFormat.compact(locale: 'fr').format(remaining)} FC',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFFD97706),
-                  ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFFBEB),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFFEF3C7)),
                 ),
-                const Text(
-                  'Solde Restant',
-                  style: TextStyle(fontSize: 10, color: FutaTheme.textLight),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: const [
+                        Icon(Icons.schedule, size: 14, color: Color(0xFFD97706)),
+                        SizedBox(width: 4),
+                        Text(
+                          'Reste',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFFB45309),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '${NumberFormat.compact(locale: 'fr').format(remaining)} FC',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFD97706),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ],
         )
@@ -316,6 +405,7 @@ class CollectionRingChart extends StatelessWidget {
     );
   }
 }
+
 
 class AttendanceRingChart extends StatelessWidget {
   final double attendanceRate;
