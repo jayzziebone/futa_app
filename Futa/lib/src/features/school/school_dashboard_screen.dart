@@ -99,11 +99,14 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
       String resolvedAdminName = user.displayName?.isNotEmpty == true ? user.displayName! : 'Administrateur FUTA';
       String resolvedAdminRole = 'Admin Principal';
       String resolvedAdminPhone = user.phoneNumber ?? '';
+      String resolvedSchoolName = _schoolName;
+      String resolvedSchoolAddress = _schoolAddress;
+      String resolvedSchoolEmail = _schoolEmail;
 
       try {
         final adminRes = await Supabase.instance.client
             .from('school_admins')
-            .select('school_id, admin_name, role_title, phone_number')
+            .select('school_id, admin_name, role_title, phone_number, school_profiles(school_name, address, email, phone_number)')
             .eq('user_id', uid)
             .maybeSingle();
 
@@ -120,10 +123,22 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
           if (adminRes['phone_number'] != null && (adminRes['phone_number'] as String).trim().isNotEmpty) {
             resolvedAdminPhone = adminRes['phone_number'] as String;
           }
+          final sp = adminRes['school_profiles'] as Map<String, dynamic>?;
+          if (sp != null) {
+            if (sp['school_name'] != null && (sp['school_name'] as String).trim().isNotEmpty) {
+              resolvedSchoolName = sp['school_name'] as String;
+            }
+            if (sp['address'] != null && (sp['address'] as String).trim().isNotEmpty) {
+              resolvedSchoolAddress = sp['address'] as String;
+            }
+            if (sp['email'] != null && (sp['email'] as String).trim().isNotEmpty) {
+              resolvedSchoolEmail = sp['email'] as String;
+            }
+          }
         } else if (cleanPhone.isNotEmpty) {
           final phoneAdminRes = await Supabase.instance.client
               .from('school_admins')
-              .select('id, school_id, admin_name, role_title, phone_number')
+              .select('id, school_id, admin_name, role_title, phone_number, school_profiles(school_name, address, email, phone_number)')
               .eq('phone_number', cleanPhone)
               .maybeSingle();
 
@@ -140,6 +155,18 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
             if (phoneAdminRes['phone_number'] != null && (phoneAdminRes['phone_number'] as String).trim().isNotEmpty) {
               resolvedAdminPhone = phoneAdminRes['phone_number'] as String;
             }
+            final sp = phoneAdminRes['school_profiles'] as Map<String, dynamic>?;
+            if (sp != null) {
+              if (sp['school_name'] != null && (sp['school_name'] as String).trim().isNotEmpty) {
+                resolvedSchoolName = sp['school_name'] as String;
+              }
+              if (sp['address'] != null && (sp['address'] as String).trim().isNotEmpty) {
+                resolvedSchoolAddress = sp['address'] as String;
+              }
+              if (sp['email'] != null && (sp['email'] as String).trim().isNotEmpty) {
+                resolvedSchoolEmail = sp['email'] as String;
+              }
+            }
             try {
               await Supabase.instance.client
                   .from('school_admins')
@@ -152,10 +179,6 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
         debugPrint('Error resolving school_admins: $adminErr');
       }
 
-      _schoolId = resolvedSchoolId;
-      _adminName = resolvedAdminName;
-      _adminRoleTitle = resolvedAdminRole;
-      _adminPhoneNumber = resolvedAdminPhone;
       final schoolId = resolvedSchoolId;
 
       // 1. Fetch School Profile details to display school name and official contacts
@@ -169,21 +192,64 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
         if (schoolProfileRes != null) {
           final sName = schoolProfileRes['school_name'] as String? ?? '';
           if (sName.isNotEmpty) {
-            _schoolName = sName;
+            resolvedSchoolName = sName;
           }
-          _schoolAddress = schoolProfileRes['address'] as String? ?? '';
-          _schoolEmail = schoolProfileRes['email'] as String? ?? '';
+          if (schoolProfileRes['address'] != null) {
+            resolvedSchoolAddress = schoolProfileRes['address'] as String? ?? '';
+          }
+          if (schoolProfileRes['email'] != null) {
+            resolvedSchoolEmail = schoolProfileRes['email'] as String? ?? '';
+          }
+        } else if (schoolId != uid) {
+          final mySchoolProfileRes = await Supabase.instance.client
+              .from('school_profiles')
+              .select('school_name, address, email, phone_number')
+              .eq('id', uid)
+              .maybeSingle();
+          if (mySchoolProfileRes != null) {
+            final sName = mySchoolProfileRes['school_name'] as String? ?? '';
+            if (sName.isNotEmpty) {
+              resolvedSchoolName = sName;
+            }
+          }
         }
       } catch (profileErr) {
         debugPrint('Failed to load school profile name: $profileErr');
       }
 
+      // Fallback: Check profiles table if still default
+      if (resolvedSchoolName == 'FUTA Administration') {
+        try {
+          final profRes = await Supabase.instance.client
+              .from('profiles')
+              .select('business_name, first_name, last_name')
+              .eq('id', schoolId)
+              .maybeSingle();
+          if (profRes != null) {
+            final bName = profRes['business_name'] as String?;
+            if (bName != null && bName.trim().isNotEmpty) {
+              resolvedSchoolName = bName;
+            }
+          }
+        } catch (_) {}
+      }
 
-      // 1. Get contracts for this school
+      // 2. Get contracts for this school
       final contractsRes = await Supabase.instance.client
           .from('school_contracts')
-          .select()
+          .select('*, school_profiles(school_name, address, email)')
           .eq('school_id', schoolId);
+
+      // Contract-level fallback for school name
+      if (contractsRes.isNotEmpty && resolvedSchoolName == 'FUTA Administration') {
+        final contractSchoolProf = contractsRes.first['school_profiles'] as Map<String, dynamic>?;
+        if (contractSchoolProf != null && contractSchoolProf['school_name'] != null) {
+          final sName = contractSchoolProf['school_name'] as String;
+          if (sName.trim().isNotEmpty) {
+            resolvedSchoolName = sName;
+          }
+        }
+      }
 
       List<Map<String, dynamic>> loadedStudents = [];
       List<Map<String, dynamic>> loadedInstallments = [];
@@ -244,6 +310,14 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
       final estimatedTeachers = loadedStudents.isNotEmpty ? (loadedStudents.length / 10).ceil() + 1 : 0;
 
       setState(() {
+        _schoolId = resolvedSchoolId;
+        _schoolName = resolvedSchoolName;
+        _adminName = resolvedAdminName;
+        _adminRoleTitle = resolvedAdminRole;
+        _adminPhoneNumber = resolvedAdminPhone;
+        _schoolAddress = resolvedSchoolAddress;
+        _schoolEmail = resolvedSchoolEmail;
+
         _allInstallments = loadedInstallments;
         _students = loadedStudents;
         _filteredStudents = List.from(_students);
