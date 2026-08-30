@@ -106,7 +106,7 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
       try {
         final adminRes = await Supabase.instance.client
             .from('school_admins')
-            .select('school_id, admin_name, role_title, phone_number, school_profiles(school_name, address, email, phone_number)')
+            .select('school_id, admin_name, role_title, phone_number, school_profiles(school_name, address, phone_number)')
             .eq('user_id', uid)
             .maybeSingle();
 
@@ -131,14 +131,11 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
             if (sp['address'] != null && (sp['address'] as String).trim().isNotEmpty) {
               resolvedSchoolAddress = sp['address'] as String;
             }
-            if (sp['email'] != null && (sp['email'] as String).trim().isNotEmpty) {
-              resolvedSchoolEmail = sp['email'] as String;
-            }
           }
         } else if (cleanPhone.isNotEmpty) {
           final phoneAdminRes = await Supabase.instance.client
               .from('school_admins')
-              .select('id, school_id, admin_name, role_title, phone_number, school_profiles(school_name, address, email, phone_number)')
+              .select('id, school_id, admin_name, role_title, phone_number, school_profiles(school_name, address, phone_number)')
               .eq('phone_number', cleanPhone)
               .maybeSingle();
 
@@ -163,9 +160,6 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
               if (sp['address'] != null && (sp['address'] as String).trim().isNotEmpty) {
                 resolvedSchoolAddress = sp['address'] as String;
               }
-              if (sp['email'] != null && (sp['email'] as String).trim().isNotEmpty) {
-                resolvedSchoolEmail = sp['email'] as String;
-              }
             }
             try {
               await Supabase.instance.client
@@ -185,7 +179,7 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
       try {
         final schoolProfileRes = await Supabase.instance.client
             .from('school_profiles')
-            .select('school_name, address, email, phone_number')
+            .select('school_name, address, phone_number')
             .eq('id', schoolId)
             .maybeSingle();
 
@@ -197,13 +191,10 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
           if (schoolProfileRes['address'] != null) {
             resolvedSchoolAddress = schoolProfileRes['address'] as String? ?? '';
           }
-          if (schoolProfileRes['email'] != null) {
-            resolvedSchoolEmail = schoolProfileRes['email'] as String? ?? '';
-          }
         } else if (schoolId != uid) {
           final mySchoolProfileRes = await Supabase.instance.client
               .from('school_profiles')
-              .select('school_name, address, email, phone_number')
+              .select('school_name, address, phone_number')
               .eq('id', uid)
               .maybeSingle();
           if (mySchoolProfileRes != null) {
@@ -237,7 +228,7 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
       // 2. Get contracts for this school
       final contractsRes = await Supabase.instance.client
           .from('school_contracts')
-          .select('*, school_profiles(school_name, address, email)')
+          .select('*, school_profiles(school_name, address)')
           .eq('school_id', schoolId);
 
       // Contract-level fallback for school name
