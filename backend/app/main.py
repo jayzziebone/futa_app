@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import school, payment, auth
+from app.routers import school, payment, auth, network
 
 app = FastAPI(
     title="FUTA Backend API",
@@ -41,6 +41,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(school.router)
 app.include_router(payment.router)
+app.include_router(network.router)
 
 
 @app.get("/")

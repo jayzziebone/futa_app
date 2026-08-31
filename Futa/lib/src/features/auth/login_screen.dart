@@ -180,6 +180,7 @@ class _LoginScreenState extends State<LoginScreen>
 
       final List<Future<dynamic>> lookupFutures = [
         Supabase.instance.client.from('profiles').select().eq('id', uid).maybeSingle(),
+        Supabase.instance.client.from('school_networks').select().eq('id', uid).maybeSingle(),
         Supabase.instance.client.from('school_admins').select().eq('user_id', uid).maybeSingle(),
         cleanPhone.isNotEmpty
             ? Supabase.instance.client.from('school_admins').select().eq('phone_number', cleanPhone).maybeSingle()
@@ -191,10 +192,11 @@ class _LoginScreenState extends State<LoginScreen>
       final results = await Future.wait(lookupFutures);
 
       final profileRes = results[0];
-      final adminByIdRes = results[1];
-      final adminByPhoneRes = results[2];
-      final schoolRes = results[3];
-      final merchantRes = results[4];
+      final networkRes = results[1];
+      final adminByIdRes = results[2];
+      final adminByPhoneRes = results[3];
+      final schoolRes = results[4];
+      final merchantRes = results[5];
 
       String role = 'client';
       String subRole = 'parent';
@@ -203,6 +205,10 @@ class _LoginScreenState extends State<LoginScreen>
       if (profileRes != null) {
         role = profileRes['role'] ?? 'client';
         subRole = profileRes['sub_role'] ?? 'parent';
+        profileFound = true;
+      } else if (networkRes != null) {
+        role = 'admin';
+        subRole = 'network';
         profileFound = true;
       } else if (adminByIdRes != null) {
         role = 'admin';
@@ -245,7 +251,9 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   void _navigateByRole(String role, String subRole) {
-    if (subRole == 'merchant') {
+    if (subRole == 'network') {
+      context.go('/network');
+    } else if (subRole == 'merchant') {
       context.go('/merchant');
     } else if (role == 'admin' || subRole == 'school') {
       context.go('/school');

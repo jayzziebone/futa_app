@@ -14,7 +14,14 @@ import './school_dashboard_mobile_layout.dart';
 import './school_dashboard_web_layout.dart';
 
 class SchoolDashboardScreen extends StatefulWidget {
-  const SchoolDashboardScreen({super.key});
+  final String? schoolIdOverride;
+  final bool isNetworkView;
+
+  const SchoolDashboardScreen({
+    super.key,
+    this.schoolIdOverride,
+    this.isNetworkView = false,
+  });
 
   @override
   State<SchoolDashboardScreen> createState() => _SchoolDashboardScreenState();
@@ -95,20 +102,21 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
       await AuthTokenManager.applySupabaseHeaders();
 
       // 0. Resolve the actual school_id and logged-in admin metadata
-      String resolvedSchoolId = uid;
+      String resolvedSchoolId = widget.schoolIdOverride ?? uid;
       String resolvedAdminName = user.displayName?.isNotEmpty == true ? user.displayName! : 'Administrateur FUTA';
-      String resolvedAdminRole = 'Admin Principal';
+      String resolvedAdminRole = widget.isNetworkView ? 'Superviseur Réseau' : 'Admin Principal';
       String resolvedAdminPhone = user.phoneNumber ?? '';
       String resolvedSchoolName = _schoolName;
       String resolvedSchoolAddress = _schoolAddress;
       String resolvedSchoolEmail = _schoolEmail;
 
-      try {
-        final adminRes = await Supabase.instance.client
-            .from('school_admins')
-            .select('school_id, admin_name, role_title, phone_number, school_profiles(school_name, address, phone_number)')
-            .eq('user_id', uid)
-            .maybeSingle();
+      if (widget.schoolIdOverride == null) {
+        try {
+          final adminRes = await Supabase.instance.client
+              .from('school_admins')
+              .select('school_id, admin_name, role_title, phone_number, school_profiles(school_name, address, phone_number)')
+              .eq('user_id', uid)
+              .maybeSingle();
 
         if (adminRes != null) {
           if (adminRes['school_id'] != null) {
@@ -169,8 +177,9 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
             } catch (_) {}
           }
         }
-      } catch (adminErr) {
-        debugPrint('Error resolving school_admins: $adminErr');
+        } catch (adminErr) {
+          debugPrint('Error resolving school_admins: $adminErr');
+        }
       }
 
       final schoolId = resolvedSchoolId;
@@ -745,7 +754,7 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
       );
     }
 
-    return LayoutBuilder(
+    final layoutWidget = LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth > 900) {
           return SchoolDashboardWebLayout(
@@ -843,6 +852,53 @@ class _SchoolDashboardScreenState extends State<SchoolDashboardScreen> {
         }
       },
     );
-  }
 
+    if (widget.isNetworkView) {
+      return Scaffold(
+        backgroundColor: FutaTheme.backgroundLight,
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF1E1B4B),
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () => context.pop(),
+          ),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: FutaTheme.emeraldGreen.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text(
+                  'SUPERVISION RÉSEAU',
+                  style: TextStyle(color: FutaTheme.emeraldGreen, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 0.8),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                  _schoolName,
+                  style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton.icon(
+              style: TextButton.styleFrom(foregroundColor: Colors.white70),
+              onPressed: () => context.pop(),
+              icon: const Icon(Icons.close, size: 16),
+              label: const Text('Fermer', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+        body: layoutWidget,
+      );
+    }
+
+    return layoutWidget;
+  }
 }

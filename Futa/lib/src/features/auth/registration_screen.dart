@@ -28,12 +28,19 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final _adminAddressController = TextEditingController();
 
   String _selectedRole = 'client'; // 'client' or 'admin'
-  String _selectedSubRole = 'parent'; // 'parent', 'school', or 'merchant'
+  String _selectedSubRole = 'parent'; // 'parent', 'school', 'network', or 'merchant'
   bool _isLoading = false;
   String? _errorMessage;
 
   String _schoolAdminMode = 'create'; // 'create' or 'join'
   final _schoolCodeController = TextEditingController();
+  final _networkCodeController = TextEditingController();
+  String? _validatedNetworkId;
+  String? _validatedNetworkName;
+  String? _validatedNetworkCode;
+  String? _networkValidationMessage;
+  bool _isValidatingNetwork = false;
+
   final List<Map<String, TextEditingController>> _coAdminControllers = [];
 
   void _addCoAdminField() {
@@ -61,6 +68,57 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       controllers['phone']?.dispose();
       controllers['role']?.dispose();
     });
+  }
+
+  Future<void> _validateNetworkCode(String code) async {
+    final cleanCode = code.trim().toUpperCase();
+    if (cleanCode.isEmpty) {
+      setState(() {
+        _validatedNetworkId = null;
+        _validatedNetworkName = null;
+        _validatedNetworkCode = null;
+        _networkValidationMessage = null;
+        _isValidatingNetwork = false;
+      });
+      return;
+    }
+
+    setState(() => _isValidatingNetwork = true);
+    try {
+      final res = await Supabase.instance.client
+          .from('school_networks')
+          .select('id, name, network_code')
+          .eq('network_code', cleanCode)
+          .maybeSingle();
+
+      if (!mounted) return;
+
+      if (res != null) {
+        setState(() {
+          _validatedNetworkId = res['id'] as String?;
+          _validatedNetworkName = res['name'] as String?;
+          _validatedNetworkCode = res['network_code'] as String?;
+          _networkValidationMessage = 'Réseau validé : ${res['name']}';
+          _isValidatingNetwork = false;
+        });
+      } else {
+        setState(() {
+          _validatedNetworkId = null;
+          _validatedNetworkName = null;
+          _validatedNetworkCode = null;
+          _networkValidationMessage = 'Code introuvable (enregistrée comme indépendante)';
+          _isValidatingNetwork = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _validatedNetworkId = null;
+          _networkValidationMessage = 'Erreur vérification code: $e';
+          _isValidatingNetwork = false;
+        });
+      }
+    }
   }
 
   String? _placeholderParentId;
@@ -201,15 +259,54 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         final businessName = _businessNameController.text.trim();
         final responsibleName = _responsibleNameController.text.trim();
 
-        if (_selectedSubRole == 'school') {
+        if (_selectedSubRole == 'network') {
+          final netCode = _networkCodeController.text.trim().toUpperCase();
+          if (netCode.isEmpty) {
+            throw 'Veuillez saisir un code unique pour votre réseau (ex: RECC).';
+          }
+          if (businessName.isEmpty) {
+            throw 'Veuillez saisir le nom de votre réseau ou coordination scolaire.';
+          }
+
+          // Check if network_code is already taken
+          final existingNet = await Supabase.instance.client
+              .from('school_networks')
+              .select('id')
+              .eq('network_code', netCode)
+              .maybeSingle();
+          if (existingNet != null && existingNet['id'] != userId) {
+            throw 'Le code réseau "$netCode" est déjà utilisé par une autre organisation.';
+          }
+
+          // Upsert to school_networks
+          await Supabase.instance.client.from('school_networks').upsert({
+            'id': userId,
+            'network_code': netCode,
+            'name': businessName,
+            'admin_name': responsibleName.isNotEmpty ? responsibleName : 'Coordinateur Principal',
+            'phone_number': phone.isNotEmpty ? phone : '+243812345678',
+            'address': address,
+          });
+        } else if (_selectedSubRole == 'school') {
           if (_schoolAdminMode == 'create') {
-            // Generate clean human-friendly invite code e.g. BOBOTO-4981
-            final rawPrefix = businessName.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toUpperCase();
-            final cleanPrefix = rawPrefix.length >= 4
-                ? rawPrefix.substring(0, 4)
-                : (rawPrefix.isNotEmpty ? rawPrefix.padRight(4, 'X') : 'SCHL');
-            final randomNum = (1000 + DateTime.now().millisecondsSinceEpoch % 8999);
-            final generatedInviteCode = '$cleanPrefix-$randomNum';
+            String generatedInviteCode;
+            if (_validatedNetworkId != null && _validatedNetworkCode != null) {
+              // Count existing member schools to propose next child code e.g. RECC-001
+              final netSchools = await Supabase.instance.client
+                  .from('school_profiles')
+                  .select('id')
+                  .eq('network_id', _validatedNetworkId!);
+              final seqNum = (netSchools.length + 1).toString().padLeft(3, '0');
+              generatedInviteCode = '$_validatedNetworkCode-$seqNum';
+            } else {
+              // Generate clean human-friendly invite code for independent school e.g. BOBOTO-4981
+              final rawPrefix = businessName.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toUpperCase();
+              final cleanPrefix = rawPrefix.length >= 4
+                  ? rawPrefix.substring(0, 4)
+                  : (rawPrefix.isNotEmpty ? rawPrefix.padRight(4, 'X') : 'SCHL');
+              final randomNum = (1000 + DateTime.now().millisecondsSinceEpoch % 8999);
+              generatedInviteCode = '$cleanPrefix-$randomNum';
+            }
 
             // 1. Upsert to school_profiles table
             await Supabase.instance.client.from('school_profiles').upsert({
@@ -220,6 +317,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               'address': address,
               'invite_code': generatedInviteCode,
               'max_admins': 4,
+              'network_id': _validatedNetworkId,
+              'network_code': _validatedNetworkCode,
             });
 
             // 2. Insert Primary Admin #1 into school_admins
@@ -306,8 +405,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             }
           }
 
-        }
- else {
+        } else {
           // Upsert to merchant_profiles table
           await Supabase.instance.client.from('merchant_profiles').upsert({
             'id': userId,
@@ -337,7 +435,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       if (!mounted) return;
 
       if (_selectedRole == 'admin') {
-        if (_selectedSubRole == 'school') {
+        if (_selectedSubRole == 'network') {
+          context.go('/network');
+        } else if (_selectedSubRole == 'school') {
           context.go('/school');
         } else {
           context.go('/merchant');
@@ -758,7 +858,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                           ),
                           SizedBox(height: 4),
                           Text(
-                            'Gérer les inscriptions et les frais académiques.',
+                            'Gérer les inscriptions, élèves et frais académiques d\'un établissement.',
                             style: TextStyle(
                               fontSize: 12,
                               color: FutaTheme.textLight,
@@ -771,7 +871,53 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
+
+            // Network Option (Aggregator / Diocese)
+            InkWell(
+              onTap: () => setState(() => _selectedSubRole = 'network'),
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: _selectedSubRole == 'network'
+                        ? FutaTheme.emeraldGreen
+                        : Colors.grey.shade200,
+                    width: _selectedSubRole == 'network' ? 2 : 1,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.hub_rounded, size: 28, color: FutaTheme.blueIndigo),
+                    SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Coordination / Réseau Scolaire',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'Superviser plusieurs établissements sous votre juridiction (Diocèse, Regroupement).',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: FutaTheme.textLight,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
 
             // Merchant Option
             InkWell(
@@ -834,6 +980,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   // STEP 3 (Admin): Admin Profile Form Card
   Widget _buildAdminInfoStep() {
     final isSchool = _selectedSubRole == 'school';
+    final isNetwork = _selectedSubRole == 'network';
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(32.0),
@@ -852,7 +1000,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              isSchool ? 'Profil École' : 'Profil Commerçant',
+              isNetwork
+                  ? 'Profil Réseau & Coordination'
+                  : (isSchool ? 'Profil École' : 'Profil Commerçant'),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 24,
@@ -862,69 +1012,66 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              isSchool
-                  ? 'Renseignez les coordonnées de l\'école.'
-                  : 'Renseignez les coordonnées du commerce.',
+              isNetwork
+                  ? 'Renseignez les coordonnées de l\'organisation faîtière.'
+                  : (isSchool
+                      ? 'Renseignez les coordonnées de l\'établissement.'
+                      : 'Renseignez les coordonnées du commerce.'),
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 14, color: FutaTheme.textLight),
             ),
             const SizedBox(height: 32),
 
-            if (isSchool) ...[
-              // School mode selector
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: _schoolAdminMode == 'create'
-                            ? FutaTheme.blueDark
-                            : Colors.transparent,
-                        foregroundColor: _schoolAdminMode == 'create'
-                            ? Colors.white
-                            : FutaTheme.blueDark,
-                        side: BorderSide(
-                          color: _schoolAdminMode == 'create'
-                              ? FutaTheme.blueDark
-                              : Colors.grey.shade300,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      onPressed: () => setState(() => _schoolAdminMode = 'create'),
-                      child: const Text('Créer une école', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: _schoolAdminMode == 'join'
-                            ? FutaTheme.blueDark
-                            : Colors.transparent,
-                        foregroundColor: _schoolAdminMode == 'join'
-                            ? Colors.white
-                            : FutaTheme.blueDark,
-                        side: BorderSide(
-                          color: _schoolAdminMode == 'join'
-                              ? FutaTheme.blueDark
-                              : Colors.grey.shade300,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      onPressed: () => setState(() => _schoolAdminMode = 'join'),
-                      child: const Text('Rejoindre une école', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-                ],
+            if (isNetwork) ...[
+              // NETWORK REGISTRATION FORM
+              TextField(
+                controller: _businessNameController,
+                decoration: const InputDecoration(
+                  labelText: 'Nom du Réseau / Coordination scolaire',
+                  hintText: 'Ex: Réseau des Écoles Catholiques du Congo',
+                  prefixIcon: Icon(Icons.hub_outlined),
+                ),
               ),
-              const SizedBox(height: 24),
-            ],
-
-            if (isSchool && _schoolAdminMode == 'join') ...[
+              const SizedBox(height: 16),
+              TextField(
+                controller: _networkCodeController,
+                textCapitalization: TextCapitalization.characters,
+                decoration: const InputDecoration(
+                  labelText: 'Code d\'Agrégation unique du Réseau',
+                  hintText: 'Ex: RECC, ECC, CS-KIN',
+                  prefixIcon: Icon(Icons.vpn_key_outlined),
+                  helperText: 'Ce code servira aux écoles sous votre juridiction pour se rattacher.',
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _responsibleNameController,
+                decoration: const InputDecoration(
+                  labelText: 'Nom du Coordinateur / Directeur National',
+                  prefixIcon: Icon(Icons.person_outline),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _phoneController,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                  labelText: 'Téléphone officiel de contact',
+                  hintText: '+243812345678',
+                  prefixIcon: Icon(Icons.phone_outlined),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _addressController,
+                decoration: const InputDecoration(
+                  labelText: 'Adresse du Siège Administratif',
+                  hintText: 'Ex: Avenue de l\'Université, Kinshasa',
+                  prefixIcon: Icon(Icons.location_on_outlined),
+                ),
+              ),
+            ] else if (isSchool && _schoolAdminMode == 'join') ...[
+              // SCHOOL JOIN FORM
               TextField(
                 controller: _schoolCodeController,
                 textCapitalization: TextCapitalization.characters,
@@ -953,6 +1100,60 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 ),
               ),
             ] else ...[
+              if (isSchool) ...[
+                // School mode selector (create vs join)
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: _schoolAdminMode == 'create'
+                              ? FutaTheme.blueDark
+                              : Colors.transparent,
+                          foregroundColor: _schoolAdminMode == 'create'
+                              ? Colors.white
+                              : FutaTheme.blueDark,
+                          side: BorderSide(
+                            color: _schoolAdminMode == 'create'
+                                ? FutaTheme.blueDark
+                                : Colors.grey.shade300,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: () => setState(() => _schoolAdminMode = 'create'),
+                        child: const Text('Créer une école', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: _schoolAdminMode == 'join'
+                              ? FutaTheme.blueDark
+                              : Colors.transparent,
+                          foregroundColor: _schoolAdminMode == 'join'
+                              ? Colors.white
+                              : FutaTheme.blueDark,
+                          side: BorderSide(
+                            color: _schoolAdminMode == 'join'
+                                ? FutaTheme.blueDark
+                                : Colors.grey.shade300,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: () => setState(() => _schoolAdminMode = 'join'),
+                        child: const Text('Rejoindre une école', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+              ],
+
               TextField(
                 controller: _businessNameController,
                 decoration: InputDecoration(
@@ -969,6 +1170,107 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 ),
               ),
               const SizedBox(height: 20),
+
+              if (isSchool && _schoolAdminMode == 'create') ...[
+                // HIERARCHICAL NETWORK LINK (OPTIONAL)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEEF2FF),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.hub_rounded, size: 16, color: FutaTheme.blueDark),
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Réseau Faîtier / Coordination (Optionnel)',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: FutaTheme.blueDark,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Si votre école appartient à un diocèse ou réseau faîtier, entrez son code (ex: RECC). Laissez vide si école indépendante.',
+                        style: TextStyle(fontSize: 11, color: FutaTheme.textLight, height: 1.4),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _networkCodeController,
+                        textCapitalization: TextCapitalization.characters,
+                        onChanged: (val) => _validateNetworkCode(val),
+                        decoration: InputDecoration(
+                          labelText: 'Code Réseau Faîtier',
+                          hintText: 'Ex: RECC',
+                          isDense: true,
+                          prefixIcon: const Icon(Icons.vpn_key_outlined, size: 18),
+                          suffixIcon: _isValidatingNetwork
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: Padding(
+                                    padding: EdgeInsets.all(12.0),
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  ),
+                                )
+                              : (_validatedNetworkId != null
+                                  ? const Icon(Icons.check_circle, color: FutaTheme.emeraldGreen)
+                                  : null),
+                        ),
+                      ),
+                      if (_networkValidationMessage != null) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: _validatedNetworkId != null ? const Color(0xFFF0FDF4) : const Color(0xFFFEF3C7),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: _validatedNetworkId != null ? const Color(0xFFBBF7D0) : const Color(0xFFFDE68A),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                _validatedNetworkId != null ? Icons.verified_rounded : Icons.info_outline,
+                                size: 14,
+                                color: _validatedNetworkId != null ? const Color(0xFF166534) : const Color(0xFF92400E),
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  _networkValidationMessage!,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: _validatedNetworkId != null ? const Color(0xFF166534) : const Color(0xFF92400E),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
 
               if (isSchool) ...[
                 const Divider(),

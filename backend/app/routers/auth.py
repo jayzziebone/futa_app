@@ -71,21 +71,31 @@ def token_exchange(request: TokenExchangeRequest):
                     role = "admin"
                     sub_role = "school"
                 else:
-                    school_res = supabase_client.table("school_profiles").select("*").eq("id", uid).execute()
-                    if school_res.data:
-                        profile = school_res.data[0]
+                    # Check school_networks first (Network Aggregator / Diocese / Coordination)
+                    network_res = supabase_client.table("school_networks").select("*").eq("id", uid).execute()
+                    if not network_res.data and clean_phone:
+                        network_res = supabase_client.table("school_networks").select("*").eq("phone_number", clean_phone).execute()
+                    
+                    if network_res.data:
+                        profile = network_res.data[0]
                         role = "admin"
-                        sub_role = "school"
+                        sub_role = "network"
                     else:
-                        merchant_res = supabase_client.table("merchant_profiles").select("*").eq("id", uid).execute()
-                        if merchant_res.data:
-                            profile = merchant_res.data[0]
+                        school_res = supabase_client.table("school_profiles").select("*").eq("id", uid).execute()
+                        if school_res.data:
+                            profile = school_res.data[0]
                             role = "admin"
-                            sub_role = "merchant"
+                            sub_role = "school"
                         else:
-                            profile = None
-                            role = ""
-                            sub_role = ""
+                            merchant_res = supabase_client.table("merchant_profiles").select("*").eq("id", uid).execute()
+                            if merchant_res.data:
+                                profile = merchant_res.data[0]
+                                role = "admin"
+                                sub_role = "merchant"
+                            else:
+                                profile = None
+                                role = ""
+                                sub_role = ""
 
         
         if profile:

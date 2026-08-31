@@ -140,20 +140,27 @@ def verify_firebase_token(token: str) -> dict:
                             except Exception:
                                 pass
                         else:
-                            school_res = supabase_client.table("school_profiles").select("id").eq("id", uid).execute()
-                            if school_res.data:
+                            # 3. Check school_networks (aggregator / diocese)
+                            network_res = supabase_client.table("school_networks").select("id").eq("id", uid).execute()
+                            if network_res.data:
                                 decoded_token["role"] = "admin"
-                                decoded_token["sub_role"] = "school"
-                                decoded_token["school_id"] = school_res.data[0].get("id")
+                                decoded_token["sub_role"] = "network"
+                                decoded_token["network_id"] = network_res.data[0].get("id")
                             else:
-                                # 3. Check merchant_profiles (merchant admin)
-                                merchant_res = supabase_client.table("merchant_profiles").select("id").eq("id", uid).execute()
-                                if merchant_res.data:
+                                school_res = supabase_client.table("school_profiles").select("id").eq("id", uid).execute()
+                                if school_res.data:
                                     decoded_token["role"] = "admin"
-                                    decoded_token["sub_role"] = "merchant"
+                                    decoded_token["sub_role"] = "school"
+                                    decoded_token["school_id"] = school_res.data[0].get("id")
                                 else:
-                                    decoded_token["role"] = "client"
-                                    decoded_token["sub_role"] = "parent"
+                                    # 4. Check merchant_profiles (merchant admin)
+                                    merchant_res = supabase_client.table("merchant_profiles").select("id").eq("id", uid).execute()
+                                    if merchant_res.data:
+                                        decoded_token["role"] = "admin"
+                                        decoded_token["sub_role"] = "merchant"
+                                    else:
+                                        decoded_token["role"] = "client"
+                                        decoded_token["sub_role"] = "parent"
 
             except Exception as e:
                 decoded_token["role"] = "client"

@@ -6,6 +6,7 @@ import '../features/auth/registration_screen.dart';
 import '../features/auth/splash_screen.dart';
 import '../features/parent/parent_dashboard_screen.dart';
 import '../features/school/school_dashboard_screen.dart';
+import '../features/network/network_dashboard_screen.dart';
 import '../features/student/student_detail_screen.dart';
 import '../features/merchant/merchant_dashboard_screen.dart';
 import '../features/merchant/create_contract_screen.dart';
@@ -40,7 +41,18 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/school',
         name: 'school',
-        builder: (context, state) => const SchoolDashboardScreen(),
+        builder: (context, state) {
+          final networkSchoolId = state.uri.queryParameters['networkSchoolId'];
+          return SchoolDashboardScreen(
+            schoolIdOverride: networkSchoolId,
+            isNetworkView: networkSchoolId != null && networkSchoolId.isNotEmpty,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/network',
+        name: 'network',
+        builder: (context, state) => const NetworkDashboardScreen(),
       ),
       GoRoute(
         path: '/merchant',

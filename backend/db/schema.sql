@@ -18,13 +18,32 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 -- Enable RLS on Profiles
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
--- 1b. SCHOOL_PROFILES Table (For school administrators)
+-- 1b. SCHOOL_NETWORKS Table (For school aggregators, dioceses, coordinations)
+CREATE TABLE IF NOT EXISTS public.school_networks (
+    id TEXT PRIMARY KEY,
+    network_code TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    admin_name TEXT NOT NULL,
+    phone_number TEXT UNIQUE NOT NULL,
+    address TEXT,
+    logo_url TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Enable RLS on School Networks
+ALTER TABLE public.school_networks ENABLE ROW LEVEL SECURITY;
+
+-- 1c. SCHOOL_PROFILES Table (For school administrators)
 CREATE TABLE IF NOT EXISTS public.school_profiles (
     id TEXT PRIMARY KEY,
     school_name TEXT NOT NULL,
     admin_name TEXT,
     phone_number TEXT UNIQUE NOT NULL,
     address TEXT,
+    invite_code TEXT UNIQUE,
+    max_admins INTEGER DEFAULT 4,
+    network_id TEXT REFERENCES public.school_networks(id) ON DELETE SET NULL,
+    network_code TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
