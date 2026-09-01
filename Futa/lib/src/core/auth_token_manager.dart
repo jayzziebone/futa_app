@@ -41,6 +41,7 @@ class AuthTokenManager {
     if (!forceRefresh &&
         _cachedToken != null &&
         _cachedRole != null &&
+        _cachedRole!.isNotEmpty &&
         _expiry != null &&
         _expiry!.isAfter(DateTime.now().add(const Duration(minutes: 5)))) {
       return SessionInfo(
@@ -48,7 +49,7 @@ class AuthTokenManager {
         uid: _cachedUid ?? user.uid,
         phoneNumber: user.phoneNumber ?? '',
         role: _cachedRole!,
-        subRole: _cachedSubRole ?? 'parent',
+        subRole: _cachedSubRole ?? '',
       );
     }
 
@@ -69,8 +70,8 @@ class AuthTokenManager {
 
       final data = authRes.data as Map<String, dynamic>;
       _cachedToken = data['supabase_token'] as String;
-      _cachedRole = data['role'] as String? ?? 'client';
-      _cachedSubRole = data['sub_role'] as String? ?? 'parent';
+      _cachedRole = data['role'] as String? ?? '';
+      _cachedSubRole = data['sub_role'] as String? ?? '';
       _cachedUid = data['uid'] as String? ?? user.uid;
       _expiry = DateTime.now().add(const Duration(hours: 23));
 

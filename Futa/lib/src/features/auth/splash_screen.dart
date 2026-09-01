@@ -35,8 +35,8 @@ class _SplashScreenState extends State<SplashScreen> {
       // 1. Fast-path: Check cached role if available
       final cachedRole = AuthTokenManager.cachedRole;
       final cachedSubRole = AuthTokenManager.cachedSubRole;
-      if (cachedRole != null && mounted) {
-        _navigateByRole(cachedRole, cachedSubRole ?? 'parent');
+      if (cachedRole != null && cachedRole.isNotEmpty && mounted) {
+        _navigateByRole(cachedRole, cachedSubRole ?? '');
         return;
       }
 
@@ -44,7 +44,7 @@ class _SplashScreenState extends State<SplashScreen> {
       final session = await AuthTokenManager.getSessionInfo();
       if (!mounted) return;
 
-      if (session != null) {
+      if (session != null && session.role.isNotEmpty && session.subRole.isNotEmpty) {
         // Set Supabase headers
         Supabase.instance.client.rest.headers['Authorization'] = 'Bearer ${session.supabaseToken}';
         try {
@@ -52,6 +52,8 @@ class _SplashScreenState extends State<SplashScreen> {
         } catch (_) {}
 
         _navigateByRole(session.role, session.subRole);
+      } else if (session != null && session.role.isEmpty) {
+        context.go('/register');
       } else {
         context.go('/login');
       }
@@ -62,12 +64,20 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   void _navigateByRole(String role, String subRole) {
-    if (subRole == 'merchant') {
+    if (role.isEmpty || subRole.isEmpty) {
+      context.go('/register');
+      return;
+    }
+    if (subRole == 'network') {
+      context.go('/network');
+    } else if (subRole == 'merchant') {
       context.go('/merchant');
     } else if (role == 'admin' || subRole == 'school') {
       context.go('/school');
-    } else {
+    } else if (role == 'client' || subRole == 'parent') {
       context.go('/parent');
+    } else {
+      context.go('/register');
     }
   }
 

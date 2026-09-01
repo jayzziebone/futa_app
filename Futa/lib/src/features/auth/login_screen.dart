@@ -160,7 +160,7 @@ class _LoginScreenState extends State<LoginScreen>
       
       // 1. Single-roundtrip token exchange & role resolution
       final session = await AuthTokenManager.getSessionInfo(forceRefresh: true);
-      if (session != null) {
+      if (session != null && session.role.isNotEmpty && session.subRole.isNotEmpty) {
         Supabase.instance.client.rest.headers['Authorization'] = 'Bearer ${session.supabaseToken}';
         try {
           Supabase.instance.client.storage.headers['Authorization'] = 'Bearer ${session.supabaseToken}';
@@ -171,9 +171,8 @@ class _LoginScreenState extends State<LoginScreen>
         return;
       }
 
-      // 2. Parallel fallback if backend token-exchange is temporarily unreachable
+      // 2. Parallel fallback if backend token-exchange returned empty role or was unreachable
       await AuthTokenManager.applySupabaseHeaders();
-
 
       final userPhone = FirebaseAuth.instance.currentUser?.phoneNumber ?? _phoneController.text.trim();
       final cleanPhone = userPhone.replaceAll(' ', '');
@@ -198,8 +197,8 @@ class _LoginScreenState extends State<LoginScreen>
       final schoolRes = results[4];
       final merchantRes = results[5];
 
-      String role = 'client';
-      String subRole = 'parent';
+      String role = '';
+      String subRole = '';
       bool profileFound = false;
 
       if (profileRes != null) {
@@ -236,7 +235,7 @@ class _LoginScreenState extends State<LoginScreen>
 
       if (!mounted) return;
 
-      if (profileFound) {
+      if (profileFound && role.isNotEmpty && subRole.isNotEmpty) {
         AuthTokenManager.cacheRole(role, subRole, uid: uid);
         _navigateByRole(role, subRole);
       } else {
@@ -251,14 +250,20 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   void _navigateByRole(String role, String subRole) {
+    if (role.isEmpty || subRole.isEmpty) {
+      context.go('/register');
+      return;
+    }
     if (subRole == 'network') {
       context.go('/network');
     } else if (subRole == 'merchant') {
       context.go('/merchant');
     } else if (role == 'admin' || subRole == 'school') {
       context.go('/school');
-    } else {
+    } else if (role == 'client' || subRole == 'parent') {
       context.go('/parent');
+    } else {
+      context.go('/register');
     }
   }
 

@@ -195,7 +195,11 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
         _futaScore = scoreData['score'] ?? 600;
         _previousFutaScore = scoreData['prev'];
       } else {
-        throw Exception("Profil introuvable pour cet utilisateur.");
+        AuthTokenManager.clear();
+        if (mounted) {
+          context.go('/register');
+        }
+        return;
       }
 
       // 2. Fetch Students
