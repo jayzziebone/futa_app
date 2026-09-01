@@ -1194,12 +1194,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                             child: const Icon(Icons.hub_rounded, size: 16, color: FutaTheme.blueDark),
                           ),
                           const SizedBox(width: 8),
-                          const Text(
-                            'Réseau Faîtier / Coordination (Optionnel)',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: FutaTheme.blueDark,
+                          const Expanded(
+                            child: Text(
+                              'Réseau Faîtier / Coordination (Optionnel)',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: FutaTheme.blueDark,
+                              ),
                             ),
                           ),
                         ],
