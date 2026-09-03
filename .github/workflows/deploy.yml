@@ -112,12 +112,15 @@ jobs:
           echo "$BUILD_CERTIFICATE_BASE64" | base64 --decode > $CERTIFICATE_PATH
           security import $CERTIFICATE_PATH -k $KEYCHAIN_PATH -P "$P12_PASSWORD" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-          security list-keychain -d user -s $KEYCHAIN_PATH
+          security list-keychains -d user -s $KEYCHAIN_PATH $(security list-keychains -d user | tr -d '"')
 
+          # Extract UUID from provisioning profile and install by UUID (required by Xcode)
           PROVISIONING_PROFILE_PATH=$RUNNER_TEMP/profile.mobileprovision
           echo "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode > $PROVISIONING_PROFILE_PATH
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          cp $PROVISIONING_PROFILE_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
+          PROFILE_UUID=$(security cms -D -i "$PROVISIONING_PROFILE_PATH" | grep -A1 '<key>UUID</key>' | grep '<string>' | sed -E 's/.*<string>(.*)<\/string>.*/\1/' | tr -d '[:space:]')
+          echo "Installing Provisioning Profile UUID: $PROFILE_UUID"
+          cp "$PROVISIONING_PROFILE_PATH" ~/Library/MobileDevice/Provisioning\ Profiles/"${PROFILE_UUID}.mobileprovision"
 
       - name: 🛠️ Build iOS Archive (.ipa)
         run: |
@@ -132,8 +135,11 @@ jobs:
           mkdir -p ~/.appstoreconnect/private_keys
           echo "$APP_STORE_CONNECT_API_KEY_BASE64" | base64 --decode > ~/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8
 
+          IPA_PATH=$(find build/ios/ipa -name "*.ipa" | head -n 1)
+          echo "Found IPA at: $IPA_PATH"
           xcrun altool --upload-app \
             --type ios \
-            --file build/ios/ipa/futa.ipa \
+            --file "$IPA_PATH" \
             --apiKey "$KEY_ID" \
             --apiIssuer "$ISSUER_ID"
+
