@@ -61,7 +61,8 @@ jobs:
 
       - name: 🛠️ Build Android App Bundle (.aab)
         run: |
-          BUILD_NUMBER=$(( 100 + ${{ github.run_number }} ))
+          # Since existing Google Play version is 13, this starts cleanly at 14
+          BUILD_NUMBER=$(( 13 + ${{ github.run_number }} ))
           echo "Building with VersionCode / BuildNumber: $BUILD_NUMBER"
           flutter build appbundle --release --build-number=$BUILD_NUMBER
 

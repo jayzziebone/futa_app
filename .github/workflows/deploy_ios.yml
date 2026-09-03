@@ -18,7 +18,7 @@ concurrency:
 jobs:
   deploy-ios:
     name: Build & Deploy iOS to TestFlight
-    runs-on: macos-14
+    runs-on: macos-15
     defaults:
       run:
         working-directory: Futa
@@ -69,7 +69,7 @@ jobs:
 
       - name: 🛠️ Build iOS Archive (.ipa)
         run: |
-          BUILD_NUMBER=$(( ${{ github.run_number }} + 10 ))
+          BUILD_NUMBER=$(( 13 + ${{ github.run_number }} ))
           echo "Building with CFBundleVersion / BuildNumber: $BUILD_NUMBER"
           flutter build ipa --release --build-number=$BUILD_NUMBER --export-options-plist=ios/ExportOptions.plist
 
