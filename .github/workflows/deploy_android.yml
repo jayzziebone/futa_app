@@ -61,7 +61,7 @@ jobs:
 
       - name: 🛠️ Build Android App Bundle (.aab)
         run: |
-          BUILD_NUMBER=$(( ${{ github.run_number }} + 10 ))
+          BUILD_NUMBER=$(( 100 + ${{ github.run_number }} ))
           echo "Building with VersionCode / BuildNumber: $BUILD_NUMBER"
           flutter build appbundle --release --build-number=$BUILD_NUMBER
 
