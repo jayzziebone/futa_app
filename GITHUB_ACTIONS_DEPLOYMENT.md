@@ -10,7 +10,8 @@ This guide documents the complete automated CI/CD pipeline for **FUTA** to autom
 .
 ├── .github/
 │   └── workflows/
-│       └── deploy.yml              # GitHub Actions CI/CD Pipeline
+│       ├── deploy_android.yml      # Dedicated Android -> Google Play workflow
+│       └── deploy_ios.yml          # Dedicated iOS -> TestFlight workflow
 ├── GITHUB_ACTIONS_DEPLOYMENT.md    # This setup guide
 ├── LAUNCH_GUIDE.md
 └── Futa/

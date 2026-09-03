@@ -1,0 +1,75 @@
+name: Deploy Android to Google Play
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'Futa/android/**'
+      - 'Futa/lib/**'
+      - 'Futa/pubspec.yaml'
+      - '.github/workflows/deploy_android.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-android-main
+  cancel-in-progress: false
+
+jobs:
+  deploy-android:
+    name: Build & Deploy Android to Google Play
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Futa
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: ☕ Setup Java (JDK 17)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: 🐦 Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+          cache-key: 'flutter-:os:-:channel:-:version:-:arch:-:hash:'
+
+      - name: 📦 Install Flutter Dependencies
+        run: flutter pub get
+
+      - name: 🔑 Decode Android Keystore & Setup key.properties
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/futa-release-key.jks
+          cat <<EOF > android/key.properties
+          storePassword=$KEYSTORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=$KEY_ALIAS
+          storeFile=futa-release-key.jks
+          EOF
+
+      - name: 🛠️ Build Android App Bundle (.aab)
+        run: |
+          BUILD_NUMBER=$(( ${{ github.run_number }} + 10 ))
+          echo "Building with VersionCode / BuildNumber: $BUILD_NUMBER"
+          flutter build appbundle --release --build-number=$BUILD_NUMBER
+
+      - name: 🚀 Upload to Google Play Console
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.futa.app
+          releaseFiles: Futa/build/app/outputs/bundle/release/app-release.aab
+          track: internal
+          status: completed
